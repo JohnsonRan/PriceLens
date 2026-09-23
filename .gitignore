@@ -6,7 +6,6 @@ store/
 tests/
 package.json
 package-lock.json
-extension/icons/
 test-results/
 .env
 .env.*

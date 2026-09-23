@@ -54,7 +54,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; width: 360px; max-width: 100%; }
 header { display: flex; gap: 10px; align-items: center; padding: 16px 20px; }
-.logo { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: #164d39; color: #e2f5af; font-size: 26px; }
+.logo { display: block; width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: #f8faf8; object-fit: contain; }
 h1 { margin: 0; font-size: 20px; letter-spacing: -0.6px; }
 h1 span { font-size: 11px; font-weight: 500; letter-spacing: 1px; margin-left: 8px; color: var(--muted); }
 main { padding: 0 20px; }
