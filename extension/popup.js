@@ -12,9 +12,10 @@ async function request(message) {
   return result;
 }
 
-function notice(text, error = false) {
+function notice(text, error = false, tone = "success") {
   $("notice").textContent = text;
   $("notice").dataset.error = String(error);
+  $("notice").dataset.tone = error ? "error" : tone;
 }
 
 function controls() {
@@ -69,12 +70,12 @@ async function showRates(force = false) {
   }
 }
 
-$("settings-form").addEventListener("input", () => { dirty = true; notice("有未保存的设置"); controls(); });
+$("settings-form").addEventListener("input", () => { dirty = true; notice("有未保存的设置", false, "pending"); controls(); });
 $("provider").addEventListener("change", () => {
   providerUI();
   if ($("provider").value === "ecb" && !C.ECB_CURRENCIES.includes($("target").value)) {
     $("target").value = "CNY";
-    notice("ECB 不支持原目标币种，已选人民币；保存后生效。");
+    notice("ECB 不支持原目标币种，已选人民币；保存后生效。", false, "pending");
   }
 });
 $("settings-form").addEventListener("submit", async (event) => {
@@ -145,5 +146,6 @@ $("refresh").addEventListener("click", async () => {
   } catch (error) {
     notice(error.message, true);
     $("status-title").textContent = "插件连接失败";
+    document.querySelector(".rate-status").dataset.warning = "true";
   } finally { busy = false; controls(); }
 })();

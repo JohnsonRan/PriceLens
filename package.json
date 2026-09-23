@@ -1,0 +1,10 @@
+{
+  "name": "pricelens",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=24" },
+  "description": "Local-first browser price converter with ECB and Wise rates",
+  "scripts": {
+    "test": "node --test tests/core.test.cjs tests/dom.test.cjs tests/mv3.test.cjs tests/popup.test.cjs tests/price-bounds.test.cjs"
+  }
+}

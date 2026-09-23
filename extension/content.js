@@ -1,13 +1,15 @@
 (() => {
   const C = PriceLens;
   const MARK = "data-pricelens";
-  const SKIP = `script,style,noscript,textarea,input,select,option,code,pre,svg,math,canvas,iframe,sup,sub,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[hidden],[aria-hidden="true"],[${MARK}]`;
+  const TEXT_SKIP = `script,style,noscript,textarea,input,select,option,code,pre,svg,math,canvas,iframe,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[hidden],[${MARK}]`;
+  const SKIP = `${TEXT_SKIP},sup,sub,[aria-hidden="true"]`;
   const records = new Map();
   const badgeAnchors = new WeakMap();
   const savingsRecords = new Map();
   const priceUnits = new Map();
   const PRODUCT = '[itemscope][itemtype$="/Product"],[data-product-id],[data-asin]:not([data-asin=""])';
   const CARD = `${PRODUCT},article,li,[role='listitem']`;
+  const CURRENCY_SCOPE = `${CARD},[itemscope][itemtype$="/Offer"]`;
   const HEADING = "h1,h2,h3,h4,h5,h6";
   const pending = new Set();
   const visibilityRoots = new Set();
@@ -29,6 +31,72 @@
   const aiScopes = new Set();
   let aiBusy = false;
   let aiEpoch = 0;
+  let detailDialog = null;
+  let detailBadge = null;
+
+  function focusableBadges() {
+    return [...document.querySelectorAll('.pricelens-price[data-pricelens]')].filter((badge) => badgeAnchors.has(badge));
+  }
+
+  function updateTabStops(preferred) {
+    const badges = focusableBadges();
+    const current = preferred || badges.find((badge) => badge.tabIndex === 0) || badges[0];
+    for (const badge of badges) if (badge.tabIndex !== (badge === current ? 0 : -1)) badge.tabIndex = badge === current ? 0 : -1;
+  }
+
+  function closeDetails(restoreFocus = true) {
+    const dialog = detailDialog, badge = detailBadge;
+    detailDialog = null;
+    detailBadge = null;
+    dialog?.close();
+    dialog?.remove();
+    if (restoreFocus && badge?.isConnected) badge.focus();
+  }
+
+  function showDetails(badge) {
+    if (detailDialog) return;
+    updateTabStops(badge);
+    const dialog = document.createElement('dialog');
+    dialog.className = 'pricelens-details';
+    dialog.setAttribute(MARK, '');
+    dialog.setAttribute('aria-label', '换算依据');
+    dialog.dataset.pricelensTheme = badge.dataset.pricelensTheme;
+    const heading = document.createElement('h2');
+    heading.textContent = '换算依据';
+    const text = document.createElement('p');
+    text.textContent = badge.title;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.autofocus = true;
+    close.textContent = '关闭';
+    close.addEventListener('click', () => closeDetails());
+    dialog.append(heading, text, close);
+    dialog.addEventListener('cancel', (event) => { event.preventDefault(); closeDetails(); });
+    dialog.addEventListener('close', () => { if (detailDialog === dialog) closeDetails(); });
+    detailDialog = dialog;
+    detailBadge = badge;
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
+  document.addEventListener('click', (event) => {
+    const badge = event.target.closest?.('.pricelens-price[data-pricelens]');
+    if (!badge || !badgeAnchors.has(badge)) return;
+    event.preventDefault();
+    event.stopPropagation(); // An annotation inside a product link must not navigate the page.
+    showDetails(badge);
+  }, true);
+  document.addEventListener('keydown', (event) => {
+    const badge = event.target;
+    if (!badgeAnchors.has(badge) || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const badges = focusableBadges();
+    const delta = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1;
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? badges.length - 1 : (badges.indexOf(badge) + delta + badges.length) % badges.length;
+    updateTabStops(badges[index]);
+    badges[index].focus();
+  }, true);
 
   function resetAI() { aiEpoch++; aiMemo.clear(); aiScopes.clear(); }
 
@@ -105,14 +173,14 @@
     }
   }
 
-  function textOf(node, visibleOnly = false) {
+  function textOf(node, visibleOnly = false, includeMirrors = false) {
     if (node.nodeType === Node.TEXT_NODE) return node.data;
     if (node.nodeType !== Node.ELEMENT_NODE) return "";
-    if (visibleOnly && (visuallyClipped(node) || getComputedStyle(node).visibility !== "visible")) return "";
+    if (visibleOnly && (visuallyClipped(node) || getComputedStyle(node).visibility !== "visible" || getComputedStyle(node).display === "none")) return "";
     let text = "";
     for (const child of node.childNodes) {
-      if (child.nodeType === Node.ELEMENT_NODE && child.hasAttribute(MARK)) continue;
-      text += textOf(child, visibleOnly);
+      if (child.nodeType === Node.ELEMENT_NODE && child.matches(includeMirrors ? TEXT_SKIP : SKIP)) continue;
+      text += textOf(child, visibleOnly, includeMirrors);
       if (text.length > 160) break;
     }
     return text;
@@ -164,28 +232,36 @@
   function hintFor(node) {
     if (settings.sourceHint) return settings.sourceHint;
     let el = node.parentElement;
+    const scope = el?.closest(CURRENCY_SCOPE);
     for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
       const hint = el.getAttribute("data-currency");
       if (Object.hasOwn(C.CURRENCIES, hint)) return hint;
       if (el === document.body) break;
       if (!hintCache.has(el)) {
-        const metadata = [...el.querySelectorAll('[itemprop="priceCurrency"]')].map((m) => m.getAttribute("content") || m.textContent.trim());
+        const metadata = (!scope && crossesProducts(el, node) ? [] : [...el.querySelectorAll('[itemprop="priceCurrency"]')])
+          .filter((m) => m.closest(CURRENCY_SCOPE) === scope)
+          .map((m) => m.getAttribute("content") || m.textContent.trim());
         hintCache.set(el, [...new Set(metadata.filter((v) => Object.hasOwn(C.CURRENCIES, v)))]);
       }
       const unique = hintCache.get(el);
       if (unique.length === 1) return unique[0];
       if (unique.length > 1) return "";
+      if (el === scope) break;
     }
     return pageHint;
   }
 
   function removeRecord(anchor, store = records) {
     const record = store.get(anchor);
-    if (record) for (const badge of record.badges) badge.remove();
+    if (record) for (const badge of record.badges) {
+      if (badge === detailBadge) closeDetails(false);
+      badge.remove();
+    }
     store.delete(anchor);
   }
 
   function clear() {
+    closeDetails(false);
     revision++;
     for (const store of [records, savingsRecords]) for (const anchor of store.keys()) removeRecord(anchor, store);
     pending.clear();
@@ -223,7 +299,7 @@
       for (let depth = 0; wrapper && wrapper !== document.body && depth < 2; depth++, wrapper = wrapper.parentElement) {
         // Class-name independent accessible-price + aria-hidden visual duplicate pattern.
         const mirrors = [...wrapper.querySelectorAll('[aria-hidden="true"]')];
-        if (isVisible(wrapper) && mirrors.some((mirror) => !visuallyClipped(mirror) && getComputedStyle(mirror).visibility === "visible" && textOf(mirror, true).replace(/\D/g, "") === digits)) return { anchor: wrapper, prices };
+        if (isVisible(wrapper) && mirrors.some((mirror) => !visuallyClipped(mirror) && getComputedStyle(mirror).visibility === "visible" && textOf(mirror, true, true).replace(/\D/g, "") === digits)) return { anchor: wrapper, prices };
       }
     }
     return { anchor: el, prices };
@@ -234,7 +310,7 @@
     let el = node.parentElement;
     for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
       if (el.matches(SKIP) || el.querySelector("sup,sub")) break;
-      const text = textOf(el).trim();
+      const text = textOf(el, !visuallyClipped(el)).trim();
       if (text.length > 100) break;
       const prices = C.findPrices(text, hint, settings.jevEnabled);
       if (prices.length === 1 && ((prices[0].start === 0 && prices[0].end === text.length) || visuallyClipped(el))) return visibleUnit(el, prices);
@@ -289,6 +365,7 @@
   function updateTheme(badge) {
     const theme = backgroundTheme(badge);
     if (badge.dataset.pricelensTheme !== theme) badge.dataset.pricelensTheme = theme;
+    if (badge === detailBadge) detailDialog.dataset.pricelensTheme = theme;
   }
 
   function queueAppearance(root = document.documentElement) {
@@ -373,7 +450,7 @@
       const scrollbarDelta = Math.abs(document.documentElement.clientWidth - viewportWidth);
       const parent = badge.parentElement;
       // A badge must not become another flex/grid item and squeeze prices or neighboring controls.
-      if (/flex|grid/.test(getComputedStyle(parent).display)) return false;
+      if (/flex|grid/.test(getComputedStyle(parent).display) || parent.closest('a[href],button,summary,[role="button"],[role="link"]')) return false;
       const neighborhood = flow?.scope.parentElement?.parentElement;
       if (neighborhood && neighborhood !== document.body && neighborhood !== document.documentElement) for (const other of neighborhood.querySelectorAll(`[${MARK}]`)) {
         const source = badgeAnchors.get(other);
@@ -441,8 +518,12 @@
       if (!price.currency || (price.currency === settings.target && !price.savings)) continue;
       const amount = price.currency === settings.target ? price.amount : C.convert(price.amount, price.currency, table);
       if (amount === null || !Number.isFinite(amount)) continue;
-      const badge = old[badges.length] || document.createElement("span");
-      if (!badge.hasAttribute(MARK)) { badge.setAttribute(MARK, ""); badge.className = "pricelens-price"; }
+      const badge = old[badges.length] || document.createElement("button");
+      if (!badge.hasAttribute(MARK)) {
+        badge.setAttribute(MARK, ""); badge.className = "pricelens-price";
+        badge.type = "button"; badge.tabIndex = -1;
+        badge.setAttribute("aria-haspopup", "dialog");
+      }
       badgeAnchors.set(badge, anchor);
       const stale = price.currency !== settings.target && table.stale;
       if (badge.dataset.stale !== String(stale)) badge.dataset.stale = String(stale);
@@ -457,17 +538,24 @@
       if (price.minimum) title += "\n这是起价下限，不是固定售价或最终结算金额。";
       if (price.savings) title += "\n仅为页面所列参考价与现价的数字差，由本地计算；价格关系由 Jev 判断，可能有误。税费口径与购买资格未核实，不代表实际可省金额或最终结算优惠；参考价不等于历史成交价。";
       else if (ai) title += `\n币种 ${price.currency} 由 Jev 辅助推断，可能有误，请核对原页面。`;
-      if (badge.title !== title) { badge.title = title; badge.setAttribute("aria-label", title); }
+      if (badge.title !== title) {
+        badge.title = title;
+        badge.setAttribute("aria-label", `${label.trim()}，查看换算依据；方向键切换价格`);
+        if (badge === detailBadge) detailDialog.querySelector('p').textContent = title;
+      }
       const position = record?.positions[badges.length];
       const nearby = position?.isConnected && (position === anchor || position === previous || position.contains(anchor)) && badge.parentNode === position.parentNode;
       const placed = placeBadge(anchor, badge, previous, nearby ? position : null);
-      if (!placed) { badge.remove(); blocked = true; continue; }
+      if (!placed) { if (badge === detailBadge) closeDetails(false); badge.remove(); blocked = true; continue; }
       if (!nearby || placed !== position || !badge.dataset.pricelensTheme) updateTheme(badge);
       previous = badge;
       positions.push(placed);
       badges.push(badge);
     }
-    for (const badge of old.slice(badges.length)) badge.remove();
+    for (const badge of old.slice(badges.length)) {
+      if (badge === detailBadge) closeDetails(false);
+      badge.remove();
+    }
     if (badges.length) store.set(key, { badges, positions, anchor, layout: layoutKey(anchor) });
     else store.delete(key);
     if (store === records) {
@@ -490,7 +578,7 @@
     if (anchor.nodeType === Node.TEXT_NODE) return false;
     for (const mirror of [el, ...el.querySelectorAll("*")]) {
       if (mirror.closest(`[${MARK}],script,style,[hidden],form`) || visuallyClipped(mirror) || getComputedStyle(mirror).visibility !== "visible") continue;
-      const values = C.findPrices(textOf(mirror, true), price.currency);
+      const values = C.findPrices(textOf(mirror, true, true), price.currency);
       if (!values.length || !values.every((value) => value.currency === price.currency && value.amount === price.amount)) continue;
       if (decorated(mirror)) return true;
       if (getComputedStyle(mirror).position === "static") continue;
@@ -694,6 +782,7 @@
       }
     } finally {
       scanning = false;
+      updateTabStops();
       void flushAI();
       if (pending.size || visibilityRoots.size || themeRoots.size || hintDirty) schedule();
     }
@@ -716,10 +805,14 @@
       if (mutation.type === "childList") themeRoots.add(element);
       if (element?.matches('input[type="hidden"][name="currencyOfPreference"]') || changed.some((node) => node.nodeType === 1 && (node.matches('input[type="hidden"][name="currencyOfPreference"]') || node.querySelector('input[type="hidden"][name="currencyOfPreference"]')))) hintDirty = true;
       if (element?.closest("head,script") || mutation.attributeName === "content" || element === document.documentElement || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("meta,script") || n.querySelector("meta,script")))) hintDirty = true;
+      // Metadata constrains sibling prices, not merely its own (often empty) text subtree.
+      if (element?.closest('[itemprop="priceCurrency"]') || mutation.attributeName === "itemprop" || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches('[itemprop="priceCurrency"]') || n.querySelector('[itemprop="priceCurrency"]')))) {
+        queue(element?.closest(CURRENCY_SCOPE) || document.body);
+      }
       queue(mutation.target);
     }
   });
-  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["content", "data-currency", "hidden", "aria-hidden", "class", "style", "data-theme", "data-color-mode", "data-color-scheme", "data-bs-theme", "media", "disabled", "value", "name", "action", "type"] });
+  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["content", "itemprop", "data-currency", "hidden", "aria-hidden", "class", "style", "data-theme", "data-color-mode", "data-color-scheme", "data-bs-theme", "media", "disabled", "value", "name", "action", "type"] });
 
   async function refresh() {
     const id = ++refreshId;

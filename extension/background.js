@@ -5,6 +5,8 @@ const localReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_C
 const inFlight = new Map();
 const failures = new Map();
 let credentialRevision = 0;
+let settingsRevision = 0;
+let saveQueue = Promise.resolve();
 const TTL = { wise: 5 * 60_000, ecb: 6 * 60 * 60_000 };
 const MAX_STALE = 7 * 24 * 60 * 60_000;
 
@@ -15,6 +17,8 @@ async function getSettings() {
 }
 
 async function inferJev(message, sender) {
+  const revision = settingsRevision;
+  await saveQueue;
   const settings = await getSettings();
   let url;
   try { url = new URL(sender.url); } catch { throw new Error("Jev 仅处理普通网页候选。"); }
@@ -23,9 +27,11 @@ async function inferJev(message, sender) {
   if (!await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] })) throw new Error("尚未授权访问 Jev 服务。");
   const { jevKey } = await chrome.storage.local.get("jevKey");
   if (!jevKey) throw new Error("请先配置 Jev API Key。");
+  // No await between this check and infer's fetch: a revoked task must never start an upload.
+  if (revision !== settingsRevision) throw new Error("识别设置已改变，本次请求已取消。");
   const decisions = await PriceLensJev.infer(message.candidates, jevKey);
   const current = await getSettings();
-  if (!current.enabled || !current.jevEnabled || current.excludedHosts.includes(url.hostname)) throw new Error("识别设置已改变，本次结果已丢弃。");
+  if (revision !== settingsRevision || !current.enabled || !current.jevEnabled || current.excludedHosts.includes(url.hostname)) throw new Error("识别设置已改变，本次结果已丢弃。");
   return { decisions };
 }
 
@@ -79,10 +85,10 @@ async function getRates(force = false) {
   const saved = await chrome.storage.local.get([key, "wiseToken"]);
   const cached = saved[key];
   const age = Date.now() - (cached?.fetchedAt || 0);
-  const quotes = Object.values(cached?.rates || {});
-  const usableCache = age >= 0 && age <= MAX_STALE && quotes.length > 0 && quotes.every((r) => {
+  const quotes = cached?.rates && typeof cached.rates === "object" && !Array.isArray(cached.rates) ? Object.entries(cached.rates) : [];
+  const usableCache = cached?.provider === provider && cached?.target === target && age >= 0 && age <= MAX_STALE && quotes.some(([code]) => code !== target) && quotes.every(([code, r]) => {
     const quoteAge = Date.now() - Date.parse(r?.asOf);
-    return typeof r?.rate === "number" && Number.isFinite(r.rate) && r.rate > 0 && quoteAge >= -86_400_000 && quoteAge <= MAX_STALE;
+    return Object.hasOwn(CURRENCIES, code) && typeof r?.rate === "number" && Number.isFinite(r.rate) && r.rate > 0 && quoteAge >= -86_400_000 && quoteAge <= MAX_STALE;
   });
   if (inFlight.has(key)) return inFlight.get(key);
   const failure = failures.get(key);
@@ -136,7 +142,6 @@ async function saveSettings(message) {
     else await chrome.storage.local.remove("wiseToken");
   }
   const settings = settingsFrom(input);
-  if (jevKey !== (stored.jevKey || "") || settings.jevEnabled !== (stored.jevEnabled === true) || settings.jevSavingsEnabled !== (stored.jevSavingsEnabled === true)) PriceLensJev.reset();
   await chrome.storage.local.set({ jevEnabled: settings.jevEnabled, jevSavingsEnabled: settings.jevSavingsEnabled });
   if (jevKey) await chrome.storage.local.set({ jevKey });
   else await chrome.storage.local.remove("jevKey");
@@ -166,9 +171,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case "getRates": return { table: await getRates(trusted && message.force === true) };
       case "inferJev": return inferJev(message, sender);
       case "inferJevSavings": throw new Error("此版本不提供参考标价差。");
-      case "saveSettings":
+      case "saveSettings": {
         if (!trusted) throw new Error("仅插件设置页可修改设置。");
-        return saveSettings(message);
+        // Serialize the entire read/modify/write, including credential snapshots.
+        const saving = saveQueue.then(() => {
+          settingsRevision++;
+          PriceLensJev.reset();
+          return saveSettings(message);
+        });
+        saveQueue = saving.catch(() => {});
+        return saving;
+      }
       default: throw new Error("未知请求。");
     }
   };

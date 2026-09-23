@@ -18,8 +18,35 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   vertical-align: baseline;
-  cursor: help;
+  cursor: pointer;
 }
+.pricelens-price[data-pricelens]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.pricelens-details[data-pricelens] {
+  all: initial;
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100vw - 32px));
+  height: fit-content;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid #b8dbce;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #20372e;
+  color-scheme: light;
+  font: 14px/1.6 system-ui, sans-serif;
+  display: none;
+}
+.pricelens-details[data-pricelens][open] { display: block; }
+.pricelens-details[data-pricelens][data-pricelens-theme="dark"] { background: #182e24; color: #d5edd7; color-scheme: dark; }
+.pricelens-details[data-pricelens]::backdrop { background: rgb(0 0 0 / 45%); }
+.pricelens-details[data-pricelens] > h2 { all: initial; display: block; color: inherit; font: 600 18px/1.5 system-ui, sans-serif; }
+.pricelens-details[data-pricelens] > p { all: initial; display: block; margin: 12px 0; color: inherit; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pricelens-details[data-pricelens] > button { all: initial; display: inline-block; padding: 6px 16px; border: 1px solid currentColor; border-radius: 6px; color: inherit; font: inherit; cursor: pointer; }
+.pricelens-details[data-pricelens] > button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .pricelens-price[data-pricelens][data-stale="true"] {
   background: var(--pl-cache-bg);
   border-color: var(--pl-cache-border);
@@ -35,5 +62,5 @@
   --pl-cache-border: #8c7445;
 }
 @media print {
-  .pricelens-price[data-pricelens] { display: none !important; }
+  .pricelens-price[data-pricelens], .pricelens-details[data-pricelens] { display: none !important; }
 }

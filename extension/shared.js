@@ -74,7 +74,8 @@
       let end = match.index + match[0].length;
       if (prefix) {
         const trailing = text.slice(end).match(/^[ \t\u00a0\u202f]*([A-Z]{3})(?![\p{L}\p{N}_])/u);
-        if (trailing && CURRENCIES[trailing[1]]) {
+        // Do not consume a trailing ISO token when it starts the next complete price.
+        if (trailing && CURRENCIES[trailing[1]] && new RegExp(pattern).exec(text.slice(end).trimStart())?.index !== 0) {
           const explicit = trailing[1];
           if (AMBIGUOUS[token]?.includes(explicit)) currency = explicit;
           else if (currency !== explicit) continue;
@@ -89,7 +90,18 @@
       const rest = marker ? text.slice(end + marker[0].length).trimStart() : "";
       const minimum = marker && !/^[+−-]?\d/u.test(rest) && new RegExp(pattern).exec(rest)?.index !== 0;
       if (minimum) end += marker[0].length;
-      prices.push({ start: match.index, end, original: text.slice(match.index, end), currency, amount: amount * (sign === "-" || sign === "−" ? -1 : 1), possibleCurrencies: currency ? [] : [...AMBIGUOUS[token]], ...(minimum ? { minimum: true } : {}) });
+      let signedAmount = amount * (sign === "-" || sign === "−" ? -1 : 1);
+      let start = match.index;
+      const previous = prices.at(-1);
+      // Only a sign BEFORE a currency token can join adjacent range endpoints.
+      // A sign inside the amount (USD -20), standalone negatives and refunds keep their sign.
+      if ((sign === "-" || sign === "−") && signedAmount < 0 && previous?.amount >= 0 && previous.currency === currency &&
+          (currency || previous.possibleCurrencies.join() === AMBIGUOUS[token]?.join()) &&
+          /^\s*$/u.test(text.slice(previous.end, match.index))) {
+        signedAmount = -signedAmount;
+        start += sign.length; // The range connector is not part of the upper price's verbatim amount.
+      }
+      prices.push({ start, end, original: text.slice(start, end), currency, amount: signedAmount, possibleCurrencies: currency ? [] : [...AMBIGUOUS[token]], ...(minimum ? { minimum: true } : {}) });
     }
     return prices.filter((price, i) => i === 0 || price.start >= prices[i - 1].end);
   }

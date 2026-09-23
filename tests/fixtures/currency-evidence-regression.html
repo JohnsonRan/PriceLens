@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><title>Explicit price-filter unit regression</title>
+<style>
+body{font:16px Arial,sans-serif;padding:20px}section{margin:15px 0;padding:12px;width:600px;border:1px solid #aaa}.p-item_price{font-size:24px;color:#b22;margin:4px 0}.p-item_priceNum{font-style:normal;font-weight:bold}input{width:70px}.gone{display:none}
+</style>
+<link rel="stylesheet" href="../../extension/content.css">
+<script src="../../extension/shared.js"></script>
+<script>function gtag(){};gtag('event','conversion',{'value':1.0,'currency':'JPY'});</script>
+</head>
+<body>
+<!-- Captured Kakaku shape, without tracking, URLs or original product descriptions. -->
+<form action="" id="local-filter"><div><input type="text" name="minp" value="never-send-min"> ～ <input type="text" name="maxp" value="never-send-max"> <span id="unit">円</span></div><button type="submit">Filter</button></form>
+<section id="plain"><p class="p-item_price c-num">¥<em class="p-item_priceNum">5,856,115</em></p></section>
+<section id="starting"><p class="p-item_price c-num">¥<em class="p-item_priceNum">939,800～</em></p></section>
+<section id="explicit"><span>USD 100</span></section>
+<section id="ambiguous"><span>$100</span></section>
+<div id="mention">円</div>
+<pre id="dom-results" hidden>pending</pre>
+<script src="currency-evidence-regression.js"></script>
+<script src="../../extension/content.js"></script>
+</body></html>

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>PriceLens evidence boundaries</title>
+<link rel="stylesheet" href="../../extension/content.css">
+<style>body{font:16px Arial;background:#fff;color:#222}section,article{padding:8px;margin:8px}.css-hidden{display:none}.transparent{opacity:0}</style>
+</head><body>
+<section><article data-product-id="a"><meta itemprop="priceCurrency" content="USD"><span>US$10</span></article><article id="unknown" data-product-id="b"><span>$10</span></article><article id="known" data-product-id="c"><meta itemprop="priceCurrency" content="CAD"><span>$10</span></article></section>
+<article itemscope itemtype="https://schema.org/Product"><div itemscope itemtype="https://schema.org/Offer"><meta itemprop="priceCurrency" content="USD"><span>$10</span></div><div id="unknown-offer" itemscope itemtype="https://schema.org/Offer"><span>$10</span></div></article>
+<section id="hidden-tail"><div><span>USD</span><span>10</span><span hidden>99</span></div></section>
+<section id="css-tail"><div><span>USD</span><span>10</span><span class="css-hidden">99</span></div></section>
+<section id="transparent-tail"><div><span>USD</span><span>10</span><span class="transparent">99</span></div></section>
+<section id="aria-tail"><div><span>USD</span><span>10</span><span aria-hidden="true" hidden>99</span></div></section>
+<article id="dynamic"><meta id="currency-meta" itemprop="priceCurrency" content="USD"><span>$10</span></article>
+<article id="text-metadata"><span id="currency-text" itemprop="priceCurrency">USD</span> <span>$10</span></article>
+<section id="range"><p>Price range €10 -€20</p></section>
+<section id="signed"><p>USD 10 USD -20</p></section>
+<section id="interactive"><a href="#should-not-navigate"><span>USD 15</span></a><button type="button">EUR 12</button></section>
+<pre id="dom-results">pending</pre>
+<script src="../../extension/shared.js"></script><script src="generality-regression.js"></script><script src="../../extension/content.js"></script>
+</body></html>

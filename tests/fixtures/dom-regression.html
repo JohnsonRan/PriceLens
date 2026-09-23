@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>PriceLens isolated DOM regression</title>
+  <link rel="stylesheet" href="../../extension/content.css">
+  <style>
+    body { background: #fff; color: #222; }
+    body[data-theme="dark"] { background: #121212; }
+    #theme-light { background: #fff; }
+    #theme-dark, #theme-alpha-parent { background: #121212; }
+    #theme-alpha { background: rgba(255,255,255,.9); }
+    #theme-gradient { background: linear-gradient(#111, #eee); }
+    .a-offscreen { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(1px,1px,1px,1px); white-space: nowrap; }
+    .a-price { font-size: 24px; }
+    #css-hidden { display: none; }
+    .show-hidden #css-hidden { display: block; }
+    .product-card { width: 200px; }
+    .product-card a { display: block; width: 100%; }
+    .product-picture { position: relative; width: 100%; overflow: hidden; border-radius: 4px; }
+    .product-picture::before { display: block; width: 100%; height: 0; padding-top: 100%; content: ''; }
+    .product-picture .photo { position: absolute; inset: 0; background: #ddd; }
+    .price-capsule { position: absolute; bottom: 0; left: 0; box-sizing: border-box; width: fit-content; max-width: calc(100% - 32px); padding: 2px 6px 2px 4px; margin-bottom: 4px; overflow: hidden; font-size: 12px; font-weight: bold; line-height: 1.5; color: #fff; text-align: left; text-overflow: ellipsis; white-space: nowrap; background: rgba(0,0,0,.55); border-radius: 0 9999px 9999px 0; }
+    .clip-row { width: 90px; height: 20px; overflow: hidden; white-space: nowrap; }
+    .screen-reader-value { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+    .bounded { width: 70px; height: 20px; overflow: hidden; white-space: nowrap; }
+    .promo-line { width: 320px; text-align: center; line-height: 20px; }
+    .narrow-choice { width: 112px; text-align: right; line-height: 20px; }
+  </style>
+  <!-- Reduced public markup observed on the user's Amazon.co.jp URLs; no live scripts or cookies. -->
+  <script id="amazon-nav" type="application/json">{"currencyInfo":{"code":"JPY","copEnabled":true}}</script>
+</head>
+<body>
+  <section id="hover-root"><p id="stable">USD 100</p><p id="css-hidden">EUR 20</p></section>
+  <div id="search-host"><span id="amazon-search" class="a-price" data-a-size="l" data-a-color="price"><span class="a-offscreen">￥3,980</span><span aria-hidden="true"><span class="a-price-symbol">￥</span><span class="a-price-whole">3,980</span></span></span></div>
+  <div id="detail-host"><span id="amazon-detail" class="a-price aok-align-center apex-pricetopay-value" data-a-size="xl" data-a-color="base"><span class="a-offscreen">JP¥6,650</span><span aria-hidden="true"><span class="a-price-symbol">JP¥</span><span class="a-price-whole">6,650</span></span></span><span id="taxInclusiveMessage">含税</span></div>
+  <div id="decimal-host"><span id="amazon-decimal" class="a-price"><span class="a-offscreen">US$49.99</span><span aria-hidden="true"><span class="a-price-symbol">$</span><span class="a-price-whole">49<span class="a-price-decimal">.</span></span><span class="a-price-fraction">99</span></span></span></div>
+  <!-- Yahoo's observed absolute price capsule and square image geometry, with intentionally unrelated class names. -->
+  <article id="yahoo-card" class="product-card"><a href="#local"><div id="yahoo-picture" class="product-picture"><div class="photo"></div><p id="yahoo-price" class="price-capsule">15,000<!-- -->円</p><div></div></div></a></article>
+  <div id="clipped-host"><div id="clipped-row" class="clip-row"><span id="clipped-price">USD 30</span></div></div>
+  <div id="generic-host"><span id="generic-widget"><span class="screen-reader-value">US$25.50</span><span aria-hidden="true"><span>$</span><span>25</span><sup>50</sup></span></span></div>
+  <div id="no-room" class="bounded"><div class="bounded"><div class="bounded"><div class="bounded"><span id="unsafe-price">USD 50</span></div></div></div></div>
+  <p id="promo-line" class="promo-line">Save USD 80 today, or get USD 200 off a second item</p>
+  <div id="narrow-choice" class="narrow-choice"><span id="narrow-price">USD 219</span> from</div>
+  <div id="flow-card" style="width:180px"><p id="flow-price">USD 37</p><button>Details</button></div>
+  <div id="option-host"><div id="option-copy" style="width:118px;text-align:right;font:12px/17px Arial"><span><span style="display:inline-block">219,800円</span>から</span><span style="display:block">、または6,105円/月の36回払いから</span></div></div>
+  <div id="flex-card" style="display:flex;width:260px;justify-content:space-between"><span id="flex-price">USD 49</span><button id="flex-control">Choose this model</button></div>
+  <div id="resize-host"><div id="resize-copy" style="width:600px;line-height:24px"><span id="resize-price">USD 20</span> per month, billed annually</div></div>
+  <p id="same">CNY 100</p><div id="insertions"></div>
+  <div id="theme-light"><span id="light-price">USD 11</span></div>
+  <div id="theme-dark"><span id="dark-price">USD 12</span></div>
+  <div id="theme-inherit"><span id="inherit-price">USD 13</span></div>
+  <div id="theme-alpha-parent"><div id="theme-alpha"><span id="alpha-price">USD 14</span></div></div>
+  <div id="theme-gradient"><span id="gradient-price">USD 15</span></div>
+  <pre id="dom-results">pending</pre>
+  <script src="../../extension/shared.js"></script>
+  <script src="dom-regression.js"></script>
+  <script src="../../extension/content.js"></script>
+</body>
+</html>

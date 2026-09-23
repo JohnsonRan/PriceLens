@@ -1,0 +1,50 @@
+[
+  {
+    "id": "lamp-usd",
+    "source": "Synthetic article with pricing policy above a nested amount",
+    "html": "<article id='lamp-usd'><h2>Desk lamp</h2><p>All displayed amounts for this lamp are in US dollars (USD). It ships from Japan.</p><div><span><b>$49.50</b></span></div></article>",
+    "original": "$49.50", "expected": "USD", "converted": 45
+  },
+  {
+    "id": "plan-cad",
+    "source": "Synthetic section with French billing description after the price",
+    "html": "<section id='plan-cad'><h2>Forfait mensuel</h2><div><p><em>$75.00</em></p></div><p>Les prix affichés de ce forfait sont en dollars canadiens (CAD), même pour les clients aux États-Unis.</p></section>",
+    "original": "$75.00", "expected": "CAD", "converted": 50
+  },
+  {
+    "id": "bag-jpy",
+    "source": "Synthetic list item with Japanese currency declaration beside the amount branch",
+    "html": "<ul><li id='bag-jpy'><h2>旅行バッグ</h2><div><span>¥16,000</span></div><p>この商品の表示価格は日本円（JPY）です。中国へも配送できます。</p></li></ul>",
+    "original": "¥16,000", "expected": "JPY", "converted": 100
+  },
+  {
+    "id": "chair-cny",
+    "source": "Synthetic product-marked div with Chinese currency policy and foreign fulfilment",
+    "html": "<div id='chair-cny' data-product-id='fixture-chair'><h2>办公椅</h2><p>本商品展示金额统一使用人民币（CNY），从日本仓库发货。</p><div><div><strong>¥790.00</strong></div></div></div>",
+    "original": "¥790.00", "expected": "CNY", "converted": 100
+  },
+  {
+    "id": "shipping-only",
+    "source": "Negative: countries do not establish a pricing currency",
+    "html": "<article id='shipping-only'><h2>Shelf</h2><p>Ships from the United States to Canada.</p><div><span><b>$31.00</b></span></div></article>",
+    "original": "$31.00", "expected": null
+  },
+  {
+    "id": "conflicting-policy",
+    "source": "Negative: contradictory current pricing statements",
+    "html": "<article id='conflicting-policy'><h2>Service plan</h2><p>All displayed prices for this plan are in USD.</p><div><span><b>$32.00</b></span></div><p>All displayed prices for this plan are in CAD.</p></article>",
+    "original": "$32.00", "expected": null
+  },
+  {
+    "id": "format-example",
+    "source": "Negative: a documentation example is not a price",
+    "html": "<article id='format-example'><h2>Number-format documentation</h2><p>The following string is a USD formatting example only. It is not a product price, fee, subscription or real charge.</p><div><span><b>$33.00</b></span></div></article>",
+    "original": "$33.00", "expected": null
+  },
+  {
+    "id": "neighbor-policy",
+    "source": "Negative: another article's policy must not be borrowed",
+    "html": "<section><article id='neighbor-policy'><h2>Unlabelled item</h2><div><span><b>$34.00</b></span></div></article><article><h2>Separate item</h2><p>Only the amounts in this separate item use US dollars (USD).</p></article></section>",
+    "original": "$34.00", "expected": null
+  }
+]
