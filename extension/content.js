@@ -3,6 +3,7 @@
   const MARK = "data-pricelens";
   const SKIP = `script,style,noscript,textarea,input,select,option,code,pre,svg,math,canvas,iframe,sup,sub,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[hidden],[aria-hidden="true"],[${MARK}]`;
   const records = new Map();
+  const badgeAnchors = new WeakMap();
   const savingsRecords = new Map();
   const priceUnits = new Map();
   const PRODUCT = '[itemscope][itemtype$="/Product"],[data-product-id],[data-asin]:not([data-asin=""])';
@@ -318,14 +319,73 @@
     for (let depth = 0; el && el !== document.body && depth < 5; depth++, el = el.parentElement) {
       const style = getComputedStyle(el);
       const rect = el.getBoundingClientRect();
-      parts.push([rect.width, rect.height, style.display, style.position, style.overflowX, style.overflowY, style.maxWidth, style.maxHeight, style.clip, style.clipPath, style.webkitLineClamp].join("/"));
+      parts.push([rect.width, rect.height, style.display, style.position, style.overflowX, style.overflowY, style.maxWidth, style.maxHeight, style.clip, style.clipPath, style.webkitLineClamp, style.font, style.whiteSpace, style.textAlign, style.flexDirection, style.gridTemplateColumns].join("/"));
     }
     return parts.join("|");
   }
 
-  function placeBadge(anchor, badge, previous) {
+  function flowSnapshot(anchor) {
+    let scope = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    while (scope && scope !== document.body && ["inline", "inline-block", "contents"].includes(getComputedStyle(scope).display)) scope = scope.parentElement;
+    if (!scope || scope === document.body || scope === document.documentElement) return null;
+    const lines = [];
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!node.data.trim() || node.parentElement.closest(`[${MARK}],script,style,[hidden]`) || visuallyClipped(node.parentElement) || getComputedStyle(node.parentElement).visibility !== "visible") continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      if (rects.length) lines.push({ range, rects });
+    }
+    return { scope, box: scope.getBoundingClientRect(), lines };
+  }
+
+  function preservesFlow(snapshot, badge, scrollbarDelta) {
+    if (!snapshot) return true;
+    const { scope, box, lines } = snapshot;
+    const next = scope.getBoundingClientRect(), badgeBox = badge.getBoundingClientRect();
+    const inside = scope.contains(badge);
+    if (Math.abs(next.width - box.width) > scrollbarDelta + 1 || Math.abs(next.height - box.height) > (inside ? badgeBox.height : 1)) return false;
+    let shift, sharesLine = false;
+    for (const { range, rects } of lines) {
+      const current = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      if (current.length !== rects.length) return false;
+      for (let i = 0; i < rects.length; i++) {
+        shift ??= current[i].top - rects[i].top;
+        if (Math.min(current[i].bottom, badgeBox.bottom) - Math.max(current[i].top, badgeBox.top) > Math.min(current[i].height, badgeBox.height) / 2) sharesLine = true;
+        if (Math.abs(current[i].width - rects[i].width) > 1 || Math.abs(current[i].height - rects[i].height) > 1 || Math.abs(current[i].top - rects[i].top - shift) > 1) return false;
+      }
+    }
+    // Allow baseline growth on an existing line, not an extra line wedged into the original copy.
+    return !inside || sharesLine;
+  }
+
+  function placeBadge(anchor, badge, previous, position) {
+    // Measure original flow without this badge, including when reusing it after resize or price changes.
+    if (badge.isConnected) badge.style.display = "none";
     const before = sourceRect(anchor);
+    const flow = flowSnapshot(anchor);
     const viewportWidth = document.documentElement.clientWidth;
+    badge.style.removeProperty("display");
+    const safe = () => {
+      const after = sourceRect(anchor);
+      const scrollbarDelta = Math.abs(document.documentElement.clientWidth - viewportWidth);
+      const parent = badge.parentElement;
+      // A badge must not become another flex/grid item and squeeze prices or neighboring controls.
+      if (/flex|grid/.test(getComputedStyle(parent).display)) return false;
+      const neighborhood = flow?.scope.parentElement?.parentElement;
+      if (neighborhood && neighborhood !== document.body && neighborhood !== document.documentElement) for (const other of neighborhood.querySelectorAll(`[${MARK}]`)) {
+        const source = badgeAnchors.get(other);
+        if (other === badge || !source || source === anchor) continue;
+        // Lifting one price's badge must not reverse it with a nearby price's annotation.
+        if (Boolean(source.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING) !== Boolean(other.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+      }
+      const rect = badge.getBoundingClientRect(), bounds = parent.getBoundingClientRect();
+      return rect.left >= Math.max(0, bounds.left) - 1 && rect.right <= Math.min(document.documentElement.clientWidth, bounds.right) + 1 && fits(badge) && Math.abs(after.height - before.height) <= 1 && Math.abs(after.width - before.width) <= scrollbarDelta + 1 && preservesFlow(flow, badge, scrollbarDelta);
+    };
+    if (position && safe()) return position;
+    badge.remove();
     let target = previous;
     if (previous === anchor) {
       let el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
@@ -338,13 +398,18 @@
     for (let depth = 0; target?.parentElement && target !== document.body && target !== document.documentElement && depth < 3; depth++, target = target.parentElement) {
       // Never write inside the price component. Try nearby flow containers only, not a page-wide overlay.
       const box = sourceRect(target);
-      if (target !== anchor && target !== previous && (box.width > Math.max(420, before.width * 4) || box.height > Math.max(420, before.height * 12))) break;
-      target.after(badge);
-      const after = sourceRect(anchor);
-      // A newly needed document scrollbar may narrow every full-width block; that is not price-box expansion.
-      const scrollbarDelta = Math.abs(document.documentElement.clientWidth - viewportWidth);
-      if (fits(badge) && Math.abs(after.height - before.height) <= 1 && Math.abs(after.width - before.width) <= scrollbarDelta + 1) return target;
+      if (target !== anchor && target !== previous && ((box.width > Math.max(420, before.width * 4) && !(target === flow?.scope && textOf(target).length <= 360)) || box.height > Math.max(420, before.height * 12))) break;
+      let insertion = target;
+      for (let next = target.nextSibling; next?.nodeType === Node.ELEMENT_NODE && next.hasAttribute(MARK); next = next.nextSibling) {
+        const source = badgeAnchors.get(next);
+        if (next === badge || !source || !(source.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING)) break;
+        insertion = next;
+      }
+      insertion.after(badge);
+      if (safe()) return target;
       badge.remove();
+      // On fallback, step past inline wrappers to keep their words and price qualifiers together.
+      while (target.parentElement && target.parentElement !== document.body && ["inline", "contents"].includes(getComputedStyle(target.parentElement).display)) target = target.parentElement;
     }
     return null;
   }
@@ -378,6 +443,7 @@
       if (amount === null || !Number.isFinite(amount)) continue;
       const badge = old[badges.length] || document.createElement("span");
       if (!badge.hasAttribute(MARK)) { badge.setAttribute(MARK, ""); badge.className = "pricelens-price"; }
+      badgeAnchors.set(badge, anchor);
       const stale = price.currency !== settings.target && table.stale;
       if (badge.dataset.stale !== String(stale)) badge.dataset.stale = String(stale);
       if (badge.dataset.pricelensSavings !== String(Boolean(price.savings))) badge.dataset.pricelensSavings = String(Boolean(price.savings));
@@ -394,7 +460,7 @@
       if (badge.title !== title) { badge.title = title; badge.setAttribute("aria-label", title); }
       const position = record?.positions[badges.length];
       const nearby = position?.isConnected && (position === anchor || position === previous || position.contains(anchor)) && badge.parentNode === position.parentNode;
-      const placed = nearby && fits(badge) ? position : placeBadge(anchor, badge, previous);
+      const placed = placeBadge(anchor, badge, previous, nearby ? position : null);
       if (!placed) { badge.remove(); blocked = true; continue; }
       if (!nearby || placed !== position || !badge.dataset.pricelensTheme) updateTheme(badge);
       previous = badge;
@@ -402,7 +468,7 @@
       badges.push(badge);
     }
     for (const badge of old.slice(badges.length)) badge.remove();
-    if (badges.length) store.set(key, { badges, positions, anchor });
+    if (badges.length) store.set(key, { badges, positions, anchor, layout: layoutKey(anchor) });
     else store.delete(key);
     if (store === records) {
       if (blocked) blockedPlacements.set(anchor, layoutKey(anchor));
@@ -578,7 +644,8 @@
       if (!anchor.isConnected) { visibilityTargets.delete(anchor); blockedPlacements.delete(anchor); continue; }
       if ([...visibilityRoots].some((root) => root.contains(anchor) || anchor.contains(root))) {
         const next = isVisible(anchor);
-        const layoutChanged = blockedPlacements.has(anchor) && blockedPlacements.get(anchor) !== layoutKey(anchor);
+        const layout = blockedPlacements.get(anchor) ?? records.get(anchor)?.layout;
+        const layoutChanged = layout !== undefined && layout !== layoutKey(anchor);
         if (next !== visible || layoutChanged || records.get(anchor)?.badges.some((badge) => badge.isConnected && !fits(badge))) pending.add(anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor);
         visibilityTargets.set(anchor, next);
       }
