@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "价译 · PriceLens",
+  "version": "0.1.0",
+  "description": "保留网页原价，在旁边显示你的货币。支持央行日更参考汇率与 Wise 最新汇率。",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://api.frankfurter.dev/*"],
+  "optional_host_permissions": ["https://api.typesafe.ai/*", "https://api.wise.com/*"],
+  "homepage_url": "https://github.com/JohnsonRan/PriceLens",
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "价译 · PriceLens",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["shared.js", "content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
+}

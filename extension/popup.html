@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>价译 · PriceLens</title>
+  <link rel="stylesheet" href="popup.css">
+  <script defer src="shared.js"></script>
+  <script defer src="popup.js"></script>
+</head>
+<body>
+  <header><span class="logo" aria-hidden="true">⇄</span><h1>PriceLens<span>价译</span></h1></header>
+  <main>
+    <form id="settings-form">
+      <section class="hero">
+        <label for="target" class="small-label">我的货币</label>
+        <select id="target" name="target" required></select>
+        <label class="switch-row" for="enabled"><span>自动换算</span><input id="enabled" type="checkbox" role="switch" checked></label>
+      </section>
+      <label class="check-row site-row"><input id="pause-site" type="checkbox"><span>暂停此网站 <small id="site-name">读取中…</small></span></label>
+      <section class="rate-status" aria-label="当前汇率状态">
+        <div class="status-heading"><span class="dot" aria-hidden="true"></span><strong id="status-title">正在读取汇率…</strong><span id="source-badge">—</span></div>
+      </section>
+      <details id="advanced-settings">
+        <summary>设置</summary>
+        <div class="fields">
+          <label for="provider">汇率来源</label>
+          <select id="provider" name="provider">
+            <option value="ecb">ECB 免费参考汇率 · 日更</option>
+            <option value="wise">Wise 中间价 · 需 Token</option>
+          </select>
+          <p id="provider-hint" class="hint"></p>
+          <details id="credentials" hidden>
+            <summary>Wise Token <span id="token-state"></span></summary>
+            <label for="token" class="sr-only">你的 Wise Token</label>
+            <input id="token" type="password" autocomplete="off" spellcheck="false" maxlength="4096">
+            <label class="check-row" id="clear-token-row"><input id="clear-token" type="checkbox">清除 Token（先切回 ECB）</label>
+            <p class="hint">仅保存在本机，不传给网页。</p>
+          </details>
+          <label for="source-hint">网页原币种</label>
+          <select id="source-hint" name="sourceHint" aria-describedby="recognition-hint"><option value="">自动识别币种</option></select>
+          <p id="recognition-hint" class="hint">读取中…</p>
+          <details id="ai-settings">
+            <summary>AI 辅助 <span id="jev-state">· 关闭</span></summary>
+            <p id="ai-consent" class="hint consent">开启后，会在未暂停的网站自动向 TypeSafe 发送价格和附近文字（每项最多 360 字符），用于币种识别。可能收费；不发送整页，片段仍可能含私人或敏感信息，请勿在敏感页面启用。<a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明 ↗</a></p>
+            <label class="check-row"><input id="jev-enabled" type="checkbox" aria-describedby="ai-consent">启用 AI，并同意上述发送</label>
+            <label for="jev-key">TypeSafe Key <a href="https://console.typesafe.ai/" target="_blank" rel="noreferrer">获取 ↗</a></label>
+            <input id="jev-key" type="password" autocomplete="off" spellcheck="false" maxlength="4096" placeholder="仅保存在本机">
+            <label class="check-row" id="clear-jev-row"><input id="clear-jev" type="checkbox">清除 Key（先关闭 AI）</label>
+          </details>
+          <details id="diagnostics">
+            <summary>诊断</summary>
+            <p id="status-detail" class="hint">读取中…</p>
+            <p id="jev-status" class="hint" role="status"></p>
+            <p class="hint">模型状态来自所有标签页的最近一批，后台重启会重置。</p>
+          </details>
+        </div>
+      </details>
+      <div class="save-area">
+        <div class="actions"><button id="save" type="submit" disabled>保存</button><button id="refresh" type="button" class="secondary" disabled>刷新汇率</button></div>
+        <p id="notice" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+  </main>
+  <footer><a href="https://github.com/JohnsonRan/PriceLens#readme" target="_blank" rel="noreferrer">使用帮助 ↗</a><a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私</a><span id="privacy-state"></span><span>估算 · 不含手续费</span></footer>
+</body>
+</html>

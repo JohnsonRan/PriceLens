@@ -1,0 +1,39 @@
+.pricelens-price[data-pricelens] {
+  all: initial;
+  --pl-bg: #eaf6ef;
+  --pl-text: #15553f;
+  --pl-border: #b8dbce;
+  --pl-cache-bg: #fff4d9;
+  --pl-cache-text: #704408;
+  --pl-cache-border: #e8cb87;
+  color-scheme: light;
+  display: inline-block;
+  margin-inline-start: 0.4em;
+  padding: 2px 6px;
+  border: 1px solid var(--pl-border);
+  border-radius: 5px;
+  background: var(--pl-bg);
+  color: var(--pl-text);
+  font: 500 12px/1.5 system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  vertical-align: baseline;
+  cursor: help;
+}
+.pricelens-price[data-pricelens][data-stale="true"] {
+  background: var(--pl-cache-bg);
+  border-color: var(--pl-cache-border);
+  color: var(--pl-cache-text);
+}
+.pricelens-price[data-pricelens][data-pricelens-theme="dark"] {
+  color-scheme: dark;
+  --pl-bg: #182e24;
+  --pl-text: #d5edd7;
+  --pl-border: #4f795f;
+  --pl-cache-bg: #3b301b;
+  --pl-cache-text: #ffe3a3;
+  --pl-cache-border: #8c7445;
+}
+@media print {
+  .pricelens-price[data-pricelens] { display: none !important; }
+}
