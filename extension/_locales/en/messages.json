@@ -1,0 +1,467 @@
+{
+  "extName": {
+    "message": "PriceLens"
+  },
+  "extDescription": {
+    "message": "Keeps the original price on web pages and shows it in your currency. Uses daily central-bank reference rates, or Wise with your own token."
+  },
+  "brandLocal": {
+    "message": "价译"
+  },
+  "detailsTitle": {
+    "message": "How this was converted"
+  },
+  "close": {
+    "message": "Close"
+  },
+  "badgeSavings": {
+    "message": "list-price difference ≈"
+  },
+  "badgeFrom": {
+    "message": "from"
+  },
+  "badgeCache": {
+    "message": "cached"
+  },
+  "badgeAria": {
+    "message": "$P1$, show conversion details; arrow keys move between prices",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sourceWise": {
+    "message": "Wise mid-market rate"
+  },
+  "sourceBlend": {
+    "message": "Frankfurter blend of central-bank reference rates (daily, not live)"
+  },
+  "sourceEcb": {
+    "message": "ECB / Frankfurter daily reference rate (not live)"
+  },
+  "basisSavings": {
+    "message": "List price $P1$ − current price $P2$ = $P3$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      }
+    }
+  },
+  "quoteSameCurrency": {
+    "message": "Same-currency difference; no exchange involved."
+  },
+  "quoteTimes": {
+    "message": "$P1$\nQuoted: $P2$\nFetched: $P3$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      }
+    }
+  },
+  "staleWarning": {
+    "message": "Update failed, using the cached rate: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "disclaimer": {
+    "message": "For reference only; excludes fees. The merchant or bank decides the final amount."
+  },
+  "minimumNote": {
+    "message": "This is a starting price, not a fixed price or final charge."
+  },
+  "savingsNote": {
+    "message": "This is only the numeric difference between the list price and current price shown on the page, calculated locally; the price relationship was $P1$. Taxes and eligibility are not checked. It is not a guaranteed saving or final discount, and a list price is not a past selling price.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "savingsStructured": {
+    "message": "taken from the page's structured product data"
+  },
+  "savingsStrike": {
+    "message": "inferred from strikethrough formatting and may be wrong"
+  },
+  "aiCurrencyNote": {
+    "message": "Currency $P1$ was inferred with Jev and may be wrong; check the original page.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errJevPageOnly": {
+    "message": "Jev only handles candidates from ordinary web pages."
+  },
+  "errJevOff": {
+    "message": "Jev assistance is off, or this site is paused."
+  },
+  "errAiSensitive": {
+    "message": "No AI requests are sent from this page."
+  },
+  "errJevPermission": {
+    "message": "Access to the Jev service has not been granted."
+  },
+  "errJevKeyMissing": {
+    "message": "Set up a Jev API key first."
+  },
+  "errJevCancelled": {
+    "message": "Recognition settings changed; this request was cancelled."
+  },
+  "errJevDiscarded": {
+    "message": "Recognition settings changed; this result was discarded."
+  },
+  "errRatesInvalid": {
+    "message": "The rate service returned invalid data."
+  },
+  "errRatesNetwork": {
+    "message": "The rate request failed or timed out. Check your connection and try again."
+  },
+  "errWiseAuth": {
+    "message": "The Wise token is invalid or cannot access the rates API. Check its permissions."
+  },
+  "errRatesLimited": {
+    "message": "The rate service is rate-limiting requests. Try again later."
+  },
+  "errRatesHttp": {
+    "message": "The rate service is unavailable (HTTP $P1$).",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errRatesJson": {
+    "message": "The rate service returned invalid JSON."
+  },
+  "errWiseTokenMissing": {
+    "message": "Add your own Wise API token in the extension first."
+  },
+  "errWisePermission": {
+    "message": "Allow access to the Wise service in settings."
+  },
+  "errRatesNone": {
+    "message": "No usable rates, or the quotes are more than 7 days old."
+  },
+  "errSettingsChanged": {
+    "message": "Settings changed; fetch rates again."
+  },
+  "errSettingsInvalid": {
+    "message": "Invalid settings."
+  },
+  "errJevKeyFormat": {
+    "message": "Invalid Jev key format."
+  },
+  "errJevNeedsKey": {
+    "message": "Turning on Jev needs a key and permission to access the service."
+  },
+  "errTokenFormat": {
+    "message": "Invalid token format. Do not include spaces or line breaks."
+  },
+  "errWiseNeedsToken": {
+    "message": "Enter an API token before using Wise."
+  },
+  "errWiseNeedsPermission": {
+    "message": "Allow access to the Wise service before using it."
+  },
+  "errPopupOnly": {
+    "message": "Only the extension's settings panel can change settings."
+  },
+  "errUnknownRequest": {
+    "message": "Unknown request."
+  },
+  "errGeneric": {
+    "message": "Something went wrong."
+  },
+  "jevIdle": {
+    "message": "Model not called yet"
+  },
+  "jevStatusBatch": {
+    "message": "Latest batch: currency confirmed for $P1$/$P2$ candidates",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "jevCached": {
+    "message": " (cached)"
+  },
+  "errJevBatch": {
+    "message": "Jev accepts 1–8 candidates per batch."
+  },
+  "errJevCandidate": {
+    "message": "Invalid Jev candidate or context."
+  },
+  "errJevAmbiguousOnly": {
+    "message": "Jev only handles amounts whose currency could not be determined locally."
+  },
+  "errJevRateLimit": {
+    "message": "Jev reached its limit of 6 batches per minute; keeping local recognition."
+  },
+  "errJevAuth": {
+    "message": "The Jev key is invalid or lacks access."
+  },
+  "errJevHttp": {
+    "message": "Jev request failed (HTTP $P1$).",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errJevJson": {
+    "message": "Jev returned invalid JSON."
+  },
+  "errJevResult": {
+    "message": "Jev returned an invalid result."
+  },
+  "errJevStale": {
+    "message": "Jev settings changed; this result was discarded."
+  },
+  "errJevAborted": {
+    "message": "Jev request cancelled or timed out; keeping local recognition."
+  },
+  "errJevNetwork": {
+    "message": "Jev network request failed; keeping local recognition."
+  },
+  "errNoBackground": {
+    "message": "Cannot reach the extension background. Reload the extension."
+  },
+  "providerHintWise": {
+    "message": "Uses your token to query mid-market rates on demand."
+  },
+  "providerHintFree": {
+    "message": "Free daily reference rates, not live. ECB first; currencies ECB does not cover use a blend of central banks."
+  },
+  "stateSaved": {
+    "message": "· saved"
+  },
+  "stateMissing": {
+    "message": "· not set"
+  },
+  "stateOn": {
+    "message": "· on"
+  },
+  "stateOff": {
+    "message": "· off"
+  },
+  "placeholderReplace": {
+    "message": "Saved; leave empty to keep, or enter a new one"
+  },
+  "placeholderToken": {
+    "message": "Paste your own token"
+  },
+  "placeholderJevKey": {
+    "message": "Stored only on this device, never synced"
+  },
+  "recognitionManual": {
+    "message": "$P1$ only resolves ambiguous symbols, on every site; explicit currencies win.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "recognitionAi": {
+    "message": "Local recognition first, AI for hard cases; unsure amounts are skipped."
+  },
+  "recognitionLocal": {
+    "message": "Uses the page's currency information; unsure amounts are skipped."
+  },
+  "footerAiOn": {
+    "message": "AI on"
+  },
+  "statusLoading": {
+    "message": "Fetching rates…"
+  },
+  "badgeCentralBank": {
+    "message": "Central bank · daily"
+  },
+  "statusCachedPrefix": {
+    "message": "Cached · "
+  },
+  "statusQuoteDate": {
+    "message": "Rates of $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusNone": {
+    "message": "none"
+  },
+  "detailTarget": {
+    "message": "Target $P1$ · $P2$ foreign currencies",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "detailBlend": {
+    "message": "Central-bank blend: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "detailQuoted": {
+    "message": "Quoted: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "detailFetched": {
+    "message": "Fetched: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "statusUnavailable": {
+    "message": "Rates unavailable"
+  },
+  "detailFailClosed": {
+    "message": "Original prices stay unchanged; nothing is converted without a reliable rate."
+  },
+  "noticeUnsaved": {
+    "message": "Unsaved changes"
+  },
+  "errJevKeyFirst": {
+    "message": "Enter a Jev key first, or turn AI off before clearing the key."
+  },
+  "errPermissionDenied": {
+    "message": "Permission for the selected service was not granted; settings were not saved."
+  },
+  "noticeSaved": {
+    "message": "Saved. Open pages update automatically."
+  },
+  "siteBuiltin": {
+    "message": "Built-in browser pages can't be converted"
+  },
+  "statusConnectFailed": {
+    "message": "Couldn't connect to the extension"
+  },
+  "labelTarget": {
+    "message": "My currency"
+  },
+  "labelEnabled": {
+    "message": "Convert automatically"
+  },
+  "labelPauseSite": {
+    "message": "Pause on this site"
+  },
+  "loading": {
+    "message": "Loading…"
+  },
+  "ariaRateStatus": {
+    "message": "Current rate status"
+  },
+  "statusReading": {
+    "message": "Reading rates…"
+  },
+  "summaryAdvanced": {
+    "message": "Rates, recognition and AI"
+  },
+  "labelProvider": {
+    "message": "Rate source"
+  },
+  "optionEcb": {
+    "message": "Free central-bank rates · daily"
+  },
+  "optionWise": {
+    "message": "Wise mid-market · token required"
+  },
+  "labelToken": {
+    "message": "Your Wise token"
+  },
+  "clearToken": {
+    "message": "Clear token (switch back to central-bank rates first)"
+  },
+  "hintLocalOnly": {
+    "message": "Stored only on this device, never shared with web pages."
+  },
+  "labelSourceHint": {
+    "message": "Page currency"
+  },
+  "optionAutoDetect": {
+    "message": "Detect automatically"
+  },
+  "labelSavings": {
+    "message": "Show list-price difference"
+  },
+  "hintSavings": {
+    "message": "List price minus current price. Uses only list or strikethrough prices marked on the page, calculated locally; no page content is sent."
+  },
+  "summaryAi": {
+    "message": "AI assistance"
+  },
+  "aiConsent": {
+    "message": "When on, prices and nearby text (up to 360 characters each) are sent automatically to TypeSafe on sites that aren't paused, to identify currencies. It may cost money. Whole pages are never sent, but snippets can still contain private or sensitive information, so don't enable it on sensitive pages."
+  },
+  "linkPrivacyNote": {
+    "message": "Privacy details ↗"
+  },
+  "labelJevEnabled": {
+    "message": "Enable AI and agree to the sending described above"
+  },
+  "linkGet": {
+    "message": "Get one ↗"
+  },
+  "placeholderLocalOnly": {
+    "message": "Stored only on this device"
+  },
+  "clearJev": {
+    "message": "Clear key (turn AI off first)"
+  },
+  "summaryDiagnostics": {
+    "message": "Diagnostics"
+  },
+  "hintModelStatus": {
+    "message": "Model status reflects the latest batch across all tabs and resets when the background restarts."
+  },
+  "buttonSave": {
+    "message": "Save"
+  },
+  "buttonRefresh": {
+    "message": "Refresh rates"
+  },
+  "footerHelp": {
+    "message": "Help ↗"
+  },
+  "footerPrivacy": {
+    "message": "Privacy"
+  },
+  "footerEstimate": {
+    "message": "Estimates · fees excluded"
+  }
+}

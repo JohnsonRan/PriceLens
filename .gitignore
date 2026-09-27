@@ -32,6 +32,7 @@ tests/fixtures/*
 !tests/fixtures/lazy-regression.js
 !tests/fixtures/shadow-regression.html
 !tests/fixtures/shadow-regression.js
+!tests/fixtures/popup-english.js
 !tests/fixtures/jev-cases.json
 !tests/fixtures/jev-currency-context-cases.json
 test-results/

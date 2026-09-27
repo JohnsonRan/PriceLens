@@ -41,6 +41,20 @@ test("every supported code has a localized name from Intl", () => {
   assert.equal(C.currencyName("TWD", "en"), "New Taiwan Dollar");
 });
 
+test("English locale switches UI text and number formatting, not amounts", () => {
+  const { i18n } = require("./i18n.cjs");
+  const zh = globalThis.chrome.i18n;
+  globalThis.chrome.i18n = i18n("en");
+  try {
+    assert.equal(C.t("errRatesHttp", 503), "The rate service is unavailable (HTTP 503).");
+    assert.equal(C.t("basisSavings", "a", "b", "c"), "List price a − current price b = c");
+    assert.equal(C.currencyName("VND"), "Vietnamese Dong");
+    assert.match(C.formatMoney(1234.5, "CNY"), /^CNY\s1,234\.50$/);
+    assert.equal(C.findPrices("USD 1,299.99")[0].amount, 1299.99, "parsing is locale-independent");
+  } finally { globalThis.chrome.i18n = zh; }
+  assert.equal(C.t("close"), "关闭");
+});
+
 test("range separators do not turn explicit signed amounts or standalone refunds positive", () => {
   for (const text of ["Price range €10 -€20", "€10 - €20", "€10-€20", "€10–€20", "USD 10 -USD 20"]) {
     assert.deepEqual(C.findPrices(text).map((p) => p.amount), [10, 20], text);
