@@ -152,14 +152,30 @@
 
   // Explicit schema.org sale markup (Google merchant listings): Offer.price or an untyped
   // UnitPriceSpecification is current; priceType StrikethroughPrice/ListPrice marks the reference.
-  function structuredSavings(root) {
-    const pairs = new Set(), stack = [root];
+  function schemaNodes(root, types) {
+    const found = [], stack = [root];
     for (let budget = 5000; stack.length && budget > 0; budget--) {
       const node = stack.pop();
       if (Array.isArray(node)) { stack.push(...node); continue; }
       if (!node || typeof node !== "object") continue;
       for (const value of Object.values(node)) if (value && typeof value === "object") stack.push(value);
-      if (![].concat(node["@type"]).includes("Offer")) continue;
+      if ([].concat(node["@type"]).some((type) => types.includes(type))) found.push(node);
+    }
+    return found;
+  }
+
+  // Offer-level currency metadata: same trust level as og:price:currency, never inferred from language or domain.
+  function structuredCurrencies(root) {
+    const currencies = new Set();
+    for (const node of schemaNodes(root, ["Offer", "AggregateOffer"])) {
+      for (const value of [node, ...[].concat(node.priceSpecification ?? [])].map((item) => item?.priceCurrency)) if (Object.hasOwn(CURRENCIES, value)) currencies.add(value);
+    }
+    return currencies;
+  }
+
+  function structuredSavings(root) {
+    const pairs = new Set();
+    for (const node of schemaNodes(root, ["Offer"])) {
       const now = Date.now();
       const specs = [].concat(node.priceSpecification ?? []).filter((spec) => spec && typeof spec === "object" && !spec.validForMemberTier && !spec.referenceQuantity &&
         !(Date.parse(spec.validThrough) < now) && !(Date.parse(spec.validFrom) > now));
@@ -198,7 +214,7 @@
     return new Intl.NumberFormat("zh-CN", { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredSavings, localSavings };
+  const api = { CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

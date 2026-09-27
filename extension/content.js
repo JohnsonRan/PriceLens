@@ -215,8 +215,8 @@
     return hints;
   }
 
-  function detectPageHint() {
-    const hints = [document.documentElement.dataset.currency, ...priceFilterHints()];
+  function detectPageHint(jsonLd) {
+    const hints = [document.documentElement.dataset.currency, ...priceFilterHints(), ...C.structuredCurrencies(jsonLd)];
     // Explicit display preference metadata; never infer currency from a domain or language.
     for (const el of document.querySelectorAll('input[type="hidden"][name="currencyOfPreference"]')) hints.push(el.value);
     for (const el of document.querySelectorAll('meta[property="product:price:currency"],meta[property="og:price:currency"],head meta[itemprop="priceCurrency"]')) hints.push(el.content);
@@ -230,13 +230,13 @@
     return unique.length === 1 ? unique[0] : "";
   }
 
-  function detectStructuredPairs() {
-    const pairs = new Set();
+  function readJsonLd() {
+    const roots = [];
     for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
       if (script.textContent.length > 500_000) continue;
-      try { for (const pair of C.structuredSavings(JSON.parse(script.textContent))) pairs.add(pair); } catch { /* Malformed page JSON is not evidence. */ }
+      try { roots.push(JSON.parse(script.textContent)); } catch { /* Malformed page JSON is not evidence. */ }
     }
-    return pairs;
+    return roots;
   }
 
   function hintFor(node) {
@@ -740,9 +740,10 @@
     }
     if (hintDirty) {
       hintDirty = false;
-      const hint = detectPageHint();
+      const jsonLd = readJsonLd();
+      const hint = detectPageHint(jsonLd);
       if (hint !== pageHint) { pageHint = hint; pending.add(document.body); }
-      const pairs = settings.savingsEnabled ? detectStructuredPairs() : new Set();
+      const pairs = settings.savingsEnabled ? C.structuredSavings(jsonLd) : new Set();
       if ([...pairs].join() !== [...structuredPairs].join()) { structuredPairs = pairs; pending.add(document.body); }
     }
     for (const [anchor, visible] of visibilityTargets) {

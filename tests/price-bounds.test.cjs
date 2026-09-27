@@ -43,6 +43,14 @@ test('schema.org sale markup yields exactly one reference/current pair per offer
   ]) assert.deepEqual(keys(data), [], name);
 });
 
+test('JSON-LD offer currencies are collected only from offers and known codes', () => {
+  const list = (data) => [...C.structuredCurrencies(data)].sort();
+  assert.deepEqual(list({ '@graph': [{ '@type': 'Product', offers: { '@type': 'AggregateOffer', lowPrice: 1, priceCurrency: 'CAD' } }] }), ['CAD']);
+  assert.deepEqual(list([{ '@type': 'Offer', priceSpecification: { priceCurrency: 'GBP' } }, { '@type': 'Offer', priceCurrency: 'USD' }]), ['GBP', 'USD']);
+  assert.deepEqual(list({ '@type': 'Organization', currenciesAccepted: 'JPY', priceCurrency: 'JPY' }), [], 'non-offer nodes are not price evidence');
+  assert.deepEqual(list({ '@type': 'Offer', priceCurrency: 'XXX' }), []);
+});
+
 test('local savings: markup first, then exactly one struck vs one unstruck amount', () => {
   const item = (context, ...entries) => ({ context, currencyHint: '', candidates: entries.map(([original, struck]) => ({ original, group: 'item', struck })) });
   const pair = item('x', ['GBP 15', false], ['GBP 10', false], ['GBP 2', false]);
