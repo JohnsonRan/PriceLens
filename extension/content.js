@@ -563,7 +563,7 @@
       const label = `${price.savings ? " 参考标价差约 " : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? " 起" : ""}${ai ? " · AI" : ""}${stale ? " · 缓存" : ""}`;
       if (badge.textContent !== label) badge.textContent = label;
       const rate = table.rates[price.currency];
-      const source = table.provider === "wise" ? "Wise 中间价" : "ECB / Frankfurter 日更参考汇率（非实时）";
+      const source = { wise: "Wise 中间价", blend: "Frankfurter 多家央行参考汇率综合值（日更，非实时）" }[rate?.source ?? table.provider] ?? "ECB / Frankfurter 日更参考汇率（非实时）";
       const basis = price.savings ? `参考价 ${C.formatMoney(price.savings.reference.amount, price.currency)} − 现价 ${C.formatMoney(price.savings.current.amount, price.currency)} = ${C.formatMoney(price.amount, price.currency)}` : `${price.original} (${price.currency})`;
       const quote = price.currency === settings.target ? "本币差额，不涉及换汇。" : `${source}\n报价时间：${rate.asOf}\n获取时间：${new Date(table.fetchedAt).toLocaleString("zh-CN")}`;
       let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${stale ? `更新失败，使用旧缓存：${table.warning}\n` : ""}仅供参考，不含手续费；实际结算以商家/银行为准。`;

@@ -26,7 +26,7 @@
         <div class="fields">
           <label for="provider">汇率来源</label>
           <select id="provider" name="provider">
-            <option value="ecb">ECB 免费参考汇率 · 日更</option>
+            <option value="ecb">央行免费参考汇率 · 日更</option>
             <option value="wise">Wise 中间价 · 需 Token</option>
           </select>
           <p id="provider-hint" class="hint"></p>
@@ -34,7 +34,7 @@
             <summary>Wise Token <span id="token-state"></span></summary>
             <label for="token" class="sr-only">你的 Wise Token</label>
             <input id="token" type="password" autocomplete="off" spellcheck="false" maxlength="4096">
-            <label class="check-row" id="clear-token-row"><input id="clear-token" type="checkbox">清除 Token（先切回 ECB）</label>
+            <label class="check-row" id="clear-token-row"><input id="clear-token" type="checkbox">清除 Token（先切回央行汇率）</label>
             <p class="hint">仅保存在本机，不传给网页。</p>
           </details>
           <label for="source-hint">网页原币种</label>

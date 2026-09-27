@@ -25,8 +25,7 @@ function controls() {
 
 function providerUI() {
   const wise = $("provider").value === "wise";
-  $("provider-hint").textContent = wise ? "使用你的 Token，按需查询中间价。" : "免费日更参考值，不是实时汇率。";
-  for (const option of $("target").options) option.disabled = !wise && !C.ECB_CURRENCIES.includes(option.value);
+  $("provider-hint").textContent = wise ? "使用你的 Token，按需查询中间价。" : "免费日更参考值，不是实时汇率。优先 ECB，ECB 没有的币种用多家央行综合值。";
   $("credentials").hidden = !wise && !state?.hasToken;
   $("credentials").open = wise && !state?.hasToken;
   $("token-state").textContent = state?.hasToken ? "· 已保存" : "· 未配置";
@@ -53,7 +52,7 @@ async function notifyPage() {
 
 async function showRates(force = false) {
   $("status-title").textContent = "正在获取汇率…";
-  $("source-badge").textContent = state.settings.provider === "wise" ? "WISE" : "ECB · 日更";
+  $("source-badge").textContent = state.settings.provider === "wise" ? "WISE" : "央行 · 日更";
   $("status-detail").textContent = "";
   try {
     const { table } = await request({ type: "getRates", force });
@@ -62,7 +61,8 @@ async function showRates(force = false) {
     document.querySelector(".rate-status").dataset.warning = String(table.stale);
     $("status-title").textContent = `${table.stale ? "缓存 · " : ""}${dates.at(-1)?.slice(0, 10) || "暂无"} 报价`;
     const count = Object.keys(table.rates).filter((code) => code !== table.target).length;
-    $("status-detail").textContent = `目标 ${table.target} · 可换算 ${count} 种外币\n报价：${range}\n获取：${new Date(table.fetchedAt).toLocaleString("zh-CN")}${table.stale ? `\n${table.warning}` : ""}`;
+    const blended = Object.entries(table.rates).filter(([, r]) => r.source === "blend").map(([code]) => code);
+    $("status-detail").textContent = `目标 ${table.target} · 可换算 ${count} 种外币${blended.length ? `\n多家央行综合值：${blended.join(" ")}` : ""}\n报价：${range}\n获取：${new Date(table.fetchedAt).toLocaleString("zh-CN")}${table.stale ? `\n${table.warning}` : ""}`;
   } catch (error) {
     document.querySelector(".rate-status").dataset.warning = "true";
     $("status-title").textContent = "汇率暂不可用";
@@ -71,13 +71,7 @@ async function showRates(force = false) {
 }
 
 $("settings-form").addEventListener("input", () => { dirty = true; notice("有未保存的设置", false, "pending"); controls(); });
-$("provider").addEventListener("change", () => {
-  providerUI();
-  if ($("provider").value === "ecb" && !C.ECB_CURRENCIES.includes($("target").value)) {
-    $("target").value = "CNY";
-    notice("ECB 不支持原目标币种，已选人民币；保存后生效。", false, "pending");
-  }
-});
+$("provider").addEventListener("change", providerUI);
 $("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (busy || !state) return;

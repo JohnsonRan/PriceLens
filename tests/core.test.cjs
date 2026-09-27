@@ -60,6 +60,7 @@ function worker(settings = {}, localData = {}, options = {}) {
   let access;
   let listener;
   let fail = false;
+  let failPattern = null;
   let rows;
   const storage = (data, area) => ({
     async get(keys) {
@@ -75,15 +76,18 @@ function worker(settings = {}, localData = {}, options = {}) {
     PriceLens: C, importScripts() {}, AbortSignal, AbortController, URL, Date, console, setTimeout, clearTimeout,
     fetch: async (url, options) => {
       calls.push({ url, options });
-      if (fail) throw new Error("network down");
+      if (fail || failPattern?.test(url)) throw new Error("network down");
       if (url.includes("typesafe.ai")) {
         const payload = await optionsJevResponse(JSON.parse(options.body));
         return { ok: true, json: async () => payload };
       }
-      const target = new URL(url).searchParams.get("source") || new URL(url).searchParams.get("base");
+      const params = new URL(url).searchParams;
+      const target = params.get("source") || params.get("base");
+      // ECB route: ECB currencies; blended route: exactly the requested quotes.
+      const quotes = url.includes("/providers/ecb/") ? C.ECB_CURRENCIES : params.get("quotes")?.split(",") || [];
       const payload = rows || (url.includes("wise.com")
         ? [{ source: target, target: "USD", rate: 0.125, time: new Date().toISOString() }]
-        : [{ base: target, quote: "USD", rate: 0.125, date: new Date().toISOString().slice(0, 10) }]);
+        : quotes.filter((quote) => quote !== target).map((quote) => ({ base: target, quote, rate: quote === "USD" ? 0.125 : 1, date: new Date().toISOString().slice(0, 10) })));
       return { ok: true, json: async () => payload };
     },
     chrome: {
@@ -99,29 +103,50 @@ function worker(settings = {}, localData = {}, options = {}) {
   function send(message, trusted = true, url = "https://shop.test/") {
     return new Promise((resolve) => listener(message, { id: "test", url: trusted ? "chrome-extension://test/popup.html" : url }, resolve));
   }
-  return { send, calls, local, sync, access: () => access, fail: () => { fail = true; }, rows: (r) => { rows = r; } };
+  return { send, calls, local, sync, access: () => access, fail: () => { fail = true; }, failOn: (pattern) => { failPattern = pattern; }, rows: (r) => { rows = r; } };
 }
 
 test("ECB fetch, cache, deduplication and stale fallback", async () => {
   const w = worker();
   const results = await Promise.all([w.send({ type: "getRates" }), w.send({ type: "getRates" })]);
   assert.ok(results.every((r) => r.ok));
-  assert.equal(w.calls.length, 1);
+  assert.equal(w.calls.length, 2, "one ECB request plus one gap-filling request");
   assert.equal(C.convert(10, "USD", results[0].table), 80);
   assert.ok(w.calls[0].url.includes("/providers/ecb/rates?base=CNY"));
+  const gap = new URL(w.calls[1].url);
+  assert.equal(gap.pathname, "/v2/rates");
+  assert.deepEqual(gap.searchParams.get("quotes").split(",").sort(), Object.keys(C.CURRENCIES).filter((code) => !C.ECB_CURRENCIES.includes(code)).sort(), "only ECB gaps use the blend");
+  assert.equal(results[0].table.rates.USD.source, "ecb");
+  assert.equal(results[0].table.rates.TWD.source, "blend");
   assert.equal(w.access(), "TRUSTED_CONTEXTS");
   await w.send({ type: "getRates" });
-  assert.equal(w.calls.length, 1);
+  assert.equal(w.calls.length, 2);
   w.fail();
   const stale = await w.send({ type: "getRates", force: true });
   assert.equal(stale.table.stale, true);
   assert.match(stale.table.warning, /失败/);
-  assert.equal(w.calls.length, 2);
+  assert.equal(w.calls.length, 4);
   const retry = await w.send({ type: "getRates", force: true });
   assert.equal(retry.table.stale, true);
-  assert.equal(w.calls.length, 2, "back off failed requests");
+  assert.equal(w.calls.length, 4, "back off failed requests");
   const contentRefresh = await w.send({ type: "getRates" }, false);
   assert.equal(contentRefresh.table.stale, true, "content scripts must also see the failed-refresh warning");
+});
+
+test("one failing key-free source does not discard the other", async () => {
+  const ecbDown = worker();
+  ecbDown.failOn(/providers\/ecb/);
+  const blended = await ecbDown.send({ type: "getRates" });
+  assert.equal(blended.ok, true);
+  assert.equal(ecbDown.calls.length, 2);
+  assert.ok(new URL(ecbDown.calls[1].url).searchParams.get("quotes").split(",").includes("USD"), "ECB outage falls back to the blend for every currency");
+  assert.equal(blended.table.rates.USD.source, "blend");
+  const blendDown = worker();
+  blendDown.failOn(/\/v2\/rates\?/);
+  const ecbOnly = await blendDown.send({ type: "getRates" });
+  assert.equal(ecbOnly.ok, true);
+  assert.equal(ecbOnly.table.rates.USD.source, "ecb");
+  assert.equal(ecbOnly.table.rates.TWD, undefined, "a missing blend leaves non-ECB currencies unconverted, never guessed");
 });
 
 test("Wise auth stays in worker; only popup can edit; token rotation clears cache", async () => {
@@ -144,7 +169,9 @@ test("Wise auth stays in worker; only popup can edit; token rotation clears cach
 
 test("missing token, unsupported base, invalid response, obsolete cache fail closed", async () => {
   assert.equal((await worker({ provider: "wise" }).send({ type: "getRates" })).ok, false);
-  assert.equal((await worker({ target: "TWD" }).send({ type: "getRates" })).ok, false);
+  const twd = await worker({ target: "TWD" }).send({ type: "getRates" });
+  assert.equal(twd.ok, true, "a non-ECB target uses the key-free blend instead of failing");
+  assert.ok(Object.values(twd.table.rates).every((rate) => rate.source === "blend"));
   const broken = worker();
   broken.rows([{ base: "CNY", quote: "USD", rate: -1, date: "not-a-date" }]);
   assert.equal((await broken.send({ type: "getRates" })).ok, false);
@@ -328,7 +355,7 @@ test("cache must match its provider, target and currency keys before reuse or fa
     const w = worker({}, { "rates:ecb:CNY": table });
     const result = await w.send({ type: "getRates" });
     assert.equal(result.ok, true);
-    assert.equal(w.calls.length, 1, "invalid cache must be replaced");
+    assert.equal(w.calls.length, 2, "invalid cache must be replaced");
     assert.equal(result.table.provider, "ecb");
     assert.equal(result.table.target, "CNY");
     const offline = worker({}, { "rates:ecb:CNY": table });

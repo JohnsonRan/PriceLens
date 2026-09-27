@@ -35,36 +35,27 @@ async function inferJev(message, sender) {
   return { decisions };
 }
 
-function readTable(rows, provider, target) {
+// Rows -> { CODE: { rate, asOf, source } }, keeping only requested, fresh, positive quotes.
+function readRates(rows, target, source, wanted) {
   if (!Array.isArray(rows) || rows.length > 1000) throw new Error("汇率接口返回了无效数据。");
   const rates = {};
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
-    const source = provider === "wise" ? row.target : row.quote;
-    const base = provider === "wise" ? row.source : row.base;
-    const asOf = provider === "wise" ? row.time : row.date;
+    const quote = source === "wise" ? row.target : row.quote;
+    const base = source === "wise" ? row.source : row.base;
+    const asOf = source === "wise" ? row.time : row.date;
     const time = typeof asOf === "string" ? Date.parse(asOf) : NaN;
-    if (base !== target || !Object.hasOwn(CURRENCIES, source)) continue;
+    if (base !== target || !wanted.includes(quote)) continue;
     if (typeof row.rate !== "number" || !Number.isFinite(row.rate) || row.rate <= 0 || !Number.isFinite(time) || time > Date.now() + 24 * 60 * 60_000 || Date.now() - time > MAX_STALE) continue;
-    rates[source] = { rate: row.rate, asOf };
+    rates[quote] = { rate: row.rate, asOf, source };
   }
-  if (!Object.keys(rates).some((code) => code !== target)) throw new Error("没有可用汇率，或报价日期已超过 7 天。");
-  return { provider, target, rates, fetchedAt: Date.now(), stale: false };
+  return rates;
 }
 
-async function download(provider, target, token) {
-  if (provider === "wise" && !token) throw new Error("请先在插件中配置自己的 Wise API Token。");
-  if (provider === "wise" && !await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error("请在设置中授权访问 Wise 服务。");
-  if (provider === "ecb" && !ECB_CURRENCIES.includes(target)) throw new Error("ECB 不支持此目标币种，请改用 Wise 或选择其他币种。");
-  const url = provider === "wise"
-    ? `https://api.wise.com/2026Q3/rates?source=${target}`
-    : `https://api.frankfurter.dev/v2/providers/ecb/rates?base=${target}`;
+async function request(url, headers = {}) {
   let response;
   try {
-    response = await fetch(url, {
-      headers: provider === "wise" ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(12_000), credentials: "omit", redirect: "error", cache: "no-store",
-    });
+    response = await fetch(url, { headers, signal: AbortSignal.timeout(12_000), credentials: "omit", redirect: "error", cache: "no-store" });
   } catch {
     throw new Error("汇率请求失败或超时，请检查网络后重试。");
   }
@@ -73,9 +64,29 @@ async function download(provider, target, token) {
     if (response.status === 429) throw new Error("汇率服务限流，请稍后重试。");
     throw new Error(`汇率服务暂不可用（HTTP ${response.status}）。`);
   }
-  let rows;
-  try { rows = await response.json(); } catch { throw new Error("汇率接口返回了无效 JSON。"); }
-  return readTable(rows, provider, target);
+  try { return await response.json(); } catch { throw new Error("汇率接口返回了无效 JSON。"); }
+}
+
+async function download(provider, target, token) {
+  const others = Object.keys(CURRENCIES).filter((code) => code !== target);
+  const rates = {};
+  let error;
+  if (provider === "wise") {
+    if (!token) throw new Error("请先在插件中配置自己的 Wise API Token。");
+    if (!await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error("请在设置中授权访问 Wise 服务。");
+    Object.assign(rates, readRates(await request(`https://api.wise.com/2026Q3/rates?source=${target}`, { Authorization: `Bearer ${token}` }), target, "wise", others));
+  } else {
+    // Prefer one traceable official source (ECB); fill only its gaps with Frankfurter's multi-central-bank blend.
+    if (ECB_CURRENCIES.includes(target)) {
+      try { Object.assign(rates, readRates(await request(`https://api.frankfurter.dev/v2/providers/ecb/rates?base=${target}`), target, "ecb", others)); } catch (e) { error = e; }
+    }
+    const missing = others.filter((code) => !rates[code]);
+    if (missing.length) {
+      try { Object.assign(rates, readRates(await request(`https://api.frankfurter.dev/v2/rates?base=${target}&quotes=${missing.join(",")}`), target, "blend", missing)); } catch (e) { error ??= e; }
+    }
+  }
+  if (!Object.keys(rates).length) throw error || new Error("没有可用汇率，或报价日期已超过 7 天。");
+  return { provider, target, rates, fetchedAt: Date.now(), stale: false };
 }
 
 async function getRates(force = false) {
@@ -122,7 +133,6 @@ async function getRates(force = false) {
 async function saveSettings(message) {
   const input = message.settings;
   if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error("设置无效。");
-  if (input.provider === "ecb" && !ECB_CURRENCIES.includes(input.target)) throw new Error("此币种需使用 Wise。");
   await localReady;
   const stored = await chrome.storage.local.get(["wiseToken", "jevKey"]);
   const token = message.token === null ? stored.wiseToken || "" : message.token;
