@@ -330,16 +330,44 @@
     return { anchor: el, prices };
   }
 
+  // "$19<sup>99</sup>", "<sup>$</sup>19<sup>99</sup>", "1.299<sup>99</sup> €": join superscript cents and
+  // currency marks into one amount. Any other sup/sub (footnotes, units) keeps the element unsupported.
+  function superscriptText(el) {
+    let text = "";
+    const walk = (node) => {
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) { text += child.data; continue; }
+        if (child.nodeType !== Node.ELEMENT_NODE || child.matches(`${TEXT_SKIP},[aria-hidden="true"]`)) continue;
+        if (!child.matches("sup,sub")) { if (!walk(child)) return false; continue; }
+        const part = child.textContent.trim();
+        if (/^\d{2}$/.test(part) && /\d$/.test(text.trimEnd())) {
+          text = text.trimEnd();
+          // Dot thousands ("1.299") mean a comma decimal.
+          text += /\.\d{3}$/.test(text) ? `,${part}` : `.${part}`;
+        } else if (/^\d{2}$/.test(part) && /[.,]$/.test(text.trimEnd())) text = text.trimEnd() + part;
+        else if (part && part.length <= 4 && !/\d/.test(part) && C.findPrices(`${part}1`, "", true).length === 1) text += part;
+        else return false;
+      }
+      return true;
+    };
+    return walk(el) ? text : null;
+  }
+
   function unitFor(node, hint) {
     // Read a canonical complete price; CSS-implied decimals without one remain unsupported.
     let el = node.parentElement;
     for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
-      if (el.matches(SKIP) || el.querySelector("sup,sub")) break;
-      const text = textOf(el, !visuallyClipped(el)).trim();
+      if (el.matches(SKIP)) break;
+      const raw = el.querySelector("sup,sub") ? superscriptText(el) : textOf(el, !visuallyClipped(el));
+      if (raw === null) break;
+      const text = raw.trim();
       if (text.length > 100) break;
       const prices = C.findPrices(text, hint, settings.jevEnabled);
       if (prices.length === 1 && ((prices[0].start === 0 && prices[0].end === text.length) || visuallyClipped(el))) return visibleUnit(el, prices);
     }
+    // "USD 19" directly followed by a superscript that is not accepted above is a truncated amount, not USD 19.
+    const next = node.nextSibling;
+    if (/\d\s*$/.test(node.data) && next?.nodeType === Node.ELEMENT_NODE && next.matches("sup,sub") && /^\s*\d/.test(next.textContent)) return { anchor: node, prices: [] };
     return { anchor: node, prices: C.findPrices(node.data, hint, settings.jevEnabled) };
   }
 
