@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 
 const { shellBrowser, platformFlags } = require("./browser.cjs");
 const browser = shellBrowser();
-for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-regression", "currency-context-regression", "generality-regression", "local-savings-regression", "jsonld-currency-regression"]) for (const systemDark of [false, true]) test(`real DOM regression: ${fixture} (${systemDark ? "dark" : "light"} system)`, { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests" }, () => {
+for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-regression", "currency-context-regression", "generality-regression", "local-savings-regression", "jsonld-currency-regression", "shadow-regression"]) for (const systemDark of [false, true]) test(`real DOM regression: ${fixture} (${systemDark ? "dark" : "light"} system)`, { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests" }, () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-dom-"));
   try {
     let file = path.join(__dirname, `fixtures/${fixture}.html`);
@@ -16,6 +16,13 @@ for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-
       const cases = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/jev-currency-context-cases.json"), "utf8"));
       const html = fs.readFileSync(file, "utf8").replace('<meta charset="utf-8">', `<meta charset="utf-8"><base href="${pathToFileURL(file).href}">`).replace("<!-- CASES -->", cases.map(c => c.html).join("\n"));
       file = path.join(profile, "currency-context.html");
+      fs.writeFileSync(file, html);
+    }
+    if (fixture === "shadow-regression") {
+      // file:// stylesheets are opaque to scripts, so hand the mocked worker the real content.css text.
+      const css = fs.readFileSync(path.join(__dirname, "../extension/content.css"), "utf8");
+      const html = fs.readFileSync(file, "utf8").replace('<meta charset="utf-8">', `<meta charset="utf-8"><base href="${pathToFileURL(file).href}"><script>window.CONTENT_CSS = ${JSON.stringify(css).replace(/</g, "\\u003c")};</script>`);
+      file = path.join(profile, "shadow.html");
       fs.writeFileSync(file, html);
     }
     if (fixture === "popup-regression") {

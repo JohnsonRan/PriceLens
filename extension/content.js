@@ -35,8 +35,50 @@
   let detailDialog = null;
   let detailBadge = null;
 
+  // Open shadow roots: scanned like the document once the badge stylesheet can be adopted into them.
+  const shadowRoots = new Set();
+  let shadowSheet; // undefined: not loaded yet; null: unavailable, so shadow roots are left alone.
+  const hostOf = (node) => node.parentNode || node.host || null;
+  const holds = (outer, node) => { for (let n = node; n; n = hostOf(n)) if (n === outer) return true; return false; };
+  const composedParent = (el) => el.parentElement || el.getRootNode().host || null;
+  function composedOrder(a, b) {
+    const chain = (n) => { const c = [n]; for (let r = n.getRootNode(); r instanceof ShadowRoot; r = r.host.getRootNode()) c.push(r.host); return c; };
+    const ca = chain(a), cb = chain(b);
+    for (const x of ca) for (const y of cb) if (x !== y && x.getRootNode() === y.getRootNode()) return x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    return 0;
+  }
+  function loadShadowSheet() {
+    if (shadowSheet !== undefined) return;
+    // The worker reads its own stylesheet, so content.css need not be web-accessible (and probeable by pages).
+    shadowSheet = chrome.runtime.sendMessage({ type: "getStyles" }).then((result) => {
+      if (!result?.ok || typeof result.css !== "string") throw new Error("styles unavailable");
+      const css = result.css;
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      shadowSheet = sheet;
+      for (const root of shadowRoots) adoptSheet(root);
+      if (shadowRoots.size) queue(document.body);
+    }, () => { shadowSheet = null; });
+  }
+  function adoptSheet(root) {
+    if (shadowSheet instanceof CSSStyleSheet && !root.adoptedStyleSheets.includes(shadowSheet)) root.adoptedStyleSheets = [...root.adoptedStyleSheets, shadowSheet];
+  }
+  function enterShadow(host) {
+    const root = host.shadowRoot;
+    if (!root) return null;
+    if (!shadowRoots.has(root)) {
+      shadowRoots.add(root);
+      observer.observe(root, OBSERVE);
+      loadShadowSheet();
+    }
+    if (!(shadowSheet instanceof CSSStyleSheet)) return null;
+    adoptSheet(root);
+    return root;
+  }
+
   function focusableBadges() {
-    return [...document.querySelectorAll('.pricelens-price[data-pricelens]')].filter((badge) => badgeAnchors.has(badge));
+    const badges = [document, ...shadowRoots].flatMap((root) => [...root.querySelectorAll('.pricelens-price[data-pricelens]')]).filter((badge) => badgeAnchors.has(badge));
+    return shadowRoots.size ? badges.sort(composedOrder) : badges;
   }
 
   function updateTabStops(preferred) {
@@ -81,14 +123,14 @@
   }
 
   document.addEventListener('click', (event) => {
-    const badge = event.target.closest?.('.pricelens-price[data-pricelens]');
+    const badge = event.composedPath()[0].closest?.('.pricelens-price[data-pricelens]');
     if (!badge || !badgeAnchors.has(badge)) return;
     event.preventDefault();
     event.stopPropagation(); // An annotation inside a product link must not navigate the page.
     showDetails(badge);
   }, true);
   document.addEventListener('keydown', (event) => {
-    const badge = event.target;
+    const badge = event.composedPath()[0];
     if (!badgeAnchors.has(badge) || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -382,7 +424,7 @@
     try {
       let remaining = 1;
       const color = [0, 0, 0];
-      for (let el = badge.parentElement; el && remaining > 0; el = el.parentElement) {
+      for (let el = composedParent(badge); el && remaining > 0; el = composedParent(el)) {
         const style = getComputedStyle(el);
         // Images/gradients cannot be reliably sampled from CSS. Use a solid, high-contrast fallback.
         if (style.backgroundImage !== "none") return "light";
@@ -501,7 +543,7 @@
     const safe = () => {
       const after = sourceRect(anchor);
       const scrollbarDelta = Math.abs(document.documentElement.clientWidth - viewportWidth);
-      const parent = badge.parentElement;
+      const parent = composedParent(badge); // A shadow root's top-level badge is laid out by its host.
       // A badge must not become another flex/grid item and squeeze prices or neighboring controls.
       if (/flex|grid/.test(getComputedStyle(parent).display) || parent.closest('a[href],button,summary,[role="button"],[role="link"]')) return false;
       // Lifting one price's badge must not reverse it with another price's annotation. A reversal needs another
@@ -531,7 +573,7 @@
         if (["absolute", "fixed"].includes(getComputedStyle(el).position)) { target = el.parentElement; break; }
       }
     }
-    for (let depth = 0; target?.parentElement && target !== document.body && target !== document.documentElement && depth < 3; depth++, target = target.parentElement) {
+    for (let depth = 0; target?.parentNode && target !== document.body && target !== document.documentElement && depth < 3; depth++, target = target.parentElement) {
       // Never write inside the price component. Try nearby flow containers only, not a page-wide overlay.
       const box = sourceRect(target);
       if (target !== anchor && target !== previous && ((box.width > Math.max(420, before.width * 4) && !(target === flow?.scope && textOf(target).length <= 360)) || box.height > Math.max(420, before.height * 12))) break;
@@ -741,13 +783,13 @@
     const scopes = new Set();
     let index;
     headed = new WeakMap();
-    for (const scope of savingsRecords.keys()) if (roots.some((root) => scope.contains(root) || root.contains(scope))) scopes.add(scope);
+    for (const scope of savingsRecords.keys()) if (roots.some((root) => holds(scope, root) || holds(root, scope))) scopes.add(scope);
     for (const anchor of priceUnits.keys()) {
-      if (!roots.some((root) => root.contains(anchor) || anchor.contains(root))) continue;
+      if (!roots.some((root) => holds(root, anchor) || holds(anchor, root))) continue;
       const scope = savingsScope(anchor, index ??= amountIndex());
       if (scope) scopes.add(scope);
     }
-    const groups = [...scopes].filter((scope) => ![...scopes].some((outer) => outer !== scope && outer.contains(scope)));
+    const groups = [...scopes].filter((scope) => ![...scopes].some((outer) => outer !== scope && holds(outer, scope)));
     for (const scope of scopes) if (!groups.includes(scope)) removeRecord(scope, savingsRecords);
     for (const scope of groups) {
       if (!savingsRecords.has(scope) && later(scope)) continue;
@@ -768,7 +810,7 @@
   function queueAIContexts(root) {
     for (const scope of aiScopes) {
       if (!scope.isConnected) aiScopes.delete(scope);
-      else if (scope.contains(root) || root.contains(scope)) pending.add(scope);
+      else if (holds(scope, root) || holds(root, scope)) pending.add(scope);
     }
     if (pending.size > 100) { pending.clear(); pending.add(document.body); }
   }
@@ -785,10 +827,11 @@
     if (scanning || !table) return;
     scanning = true;
     hintCache = new WeakMap();
+    for (const root of shadowRoots) if (!root.isConnected) { shadowRoots.delete(root); }
     if (themeRoots.size) {
       colorCache.clear();
       for (const { badges } of [...records.values(), ...savingsRecords.values()]) for (const badge of badges) {
-        if (badge.isConnected && [...themeRoots].some((root) => root.contains(badge))) updateTheme(badge);
+        if (badge.isConnected && [...themeRoots].some((root) => holds(root, badge))) updateTheme(badge);
       }
       themeRoots.clear();
     }
@@ -802,7 +845,7 @@
     }
     for (const [anchor, visible] of visibilityTargets) {
       if (!anchor.isConnected) { visibilityTargets.delete(anchor); blockedPlacements.delete(anchor); continue; }
-      if ([...visibilityRoots].some((root) => root.contains(anchor) || anchor.contains(root))) {
+      if ([...visibilityRoots].some((root) => holds(root, anchor) || holds(anchor, root))) {
         const next = isVisible(anchor);
         const layout = blockedPlacements.get(anchor) ?? records.get(anchor)?.layout;
         const layoutChanged = layout !== undefined && layout !== layoutKey(anchor);
@@ -811,38 +854,42 @@
       }
     }
     if (settings.savingsEnabled) for (const [anchor, unit] of priceUnits) {
-      if (anchor.isConnected && [...visibilityRoots].some((root) => root.contains(anchor) || anchor.contains(root)) && unit.struck.some((struck, i) => struck !== isStruck(anchor, unit.prices[i]))) pending.add(anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor);
+      if (anchor.isConnected && [...visibilityRoots].some((root) => holds(root, anchor) || holds(anchor, root)) && unit.struck.some((struck, i) => struck !== isStruck(anchor, unit.prices[i]))) pending.add(anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor);
     }
     for (const [scope, record] of savingsRecords) {
       if (!scope.isConnected) { removeRecord(scope, savingsRecords); continue; }
-      if ([...visibilityRoots].some((root) => root.contains(scope) || scope.contains(root)) && (!isVisible(record.anchor) || record.badges.some((badge) => badge.isConnected && !fits(badge)))) pending.add(scope);
+      if ([...visibilityRoots].some((root) => holds(root, scope) || holds(scope, root)) && (!isVisible(record.anchor) || record.badges.some((badge) => badge.isConnected && !fits(badge)))) pending.add(scope);
     }
     visibilityRoots.clear();
     const version = revision;
     const roots = [...pending].filter((root) => root?.isConnected);
     pending.clear();
-    const topRoots = roots.filter((root) => !roots.some((other) => other !== root && other.contains(root)));
+    const topRoots = roots.filter((root) => !roots.some((other) => other !== root && holds(other, root)));
     const affected = [];
     for (const anchor of records.keys()) {
       if (!anchor.isConnected) removeRecord(anchor);
-      else if (topRoots.some((root) => root.contains(anchor) || anchor.contains(root))) affected.push(anchor);
+      else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affected.push(anchor);
     }
     const seen = new Set(), unitsSeen = new Set();
     const affectedUnits = [];
     for (const anchor of priceUnits.keys()) {
       if (!anchor.isConnected) priceUnits.delete(anchor);
-      else if (topRoots.some((root) => root.contains(anchor) || anchor.contains(root))) affectedUnits.push(anchor);
+      else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affectedUnits.push(anchor);
     }
     let visited = 0;
     try {
-      for (const root of topRoots) {
+      const walkRoots = [...topRoots];
+      for (const root of walkRoots) {
         if (root.closest?.(SKIP)) continue;
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-          acceptNode: (node) => node.parentElement?.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+        // Elements are visited only to find open shadow roots, which are walked afterwards like any other root.
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+          acceptNode: (node) => node.nodeType === Node.ELEMENT_NODE ? (node.matches(SKIP) ? NodeFilter.FILTER_REJECT : node.shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP)
+            : node.parentElement?.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
         });
         let node;
         while ((node = walker.nextNode())) {
           if (version !== revision || !table) return;
+          if (node.nodeType === Node.ELEMENT_NODE) { const shadow = enterShadow(node); if (shadow) walkRoots.push(shadow); continue; }
           annotate(node, seen, unitsSeen);
           if (++visited % 250 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
         }
@@ -884,7 +931,8 @@
       queue(mutation.target);
     }
   });
-  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["content", "itemprop", "data-currency", "hidden", "aria-hidden", "class", "style", "data-theme", "data-color-mode", "data-color-scheme", "data-bs-theme", "media", "disabled", "value", "name", "action", "type"] });
+  const OBSERVE = { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["content", "itemprop", "data-currency", "hidden", "aria-hidden", "class", "style", "data-theme", "data-color-mode", "data-color-scheme", "data-bs-theme", "media", "disabled", "value", "name", "action", "type"] };
+  observer.observe(document.documentElement, OBSERVE);
 
   async function refresh() {
     const id = ++refreshId;

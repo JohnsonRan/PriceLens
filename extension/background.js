@@ -180,6 +180,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         return state;
       }
+      case "getStyles": return { css: await (await fetch(chrome.runtime.getURL("content.css"))).text() };
       case "getRates": return { table: await getRates(trusted && message.force === true) };
       case "inferJev": return inferJev(message, sender);
       case "saveSettings": {

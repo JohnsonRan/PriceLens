@@ -18,7 +18,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
   fs.mkdirSync(profile);
   const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end('<!doctype html><html lang="en"><title>PriceLens MV3 smoke</title><style>body{font:18px Arial;background:white;color:#222;padding:20px}</style><h1>Local synthetic shop</h1><p>USD 10</p><p>EUR 20</p></html>');
+    res.end('<!doctype html><html lang="en"><title>PriceLens MV3 smoke</title><style>body{font:18px Arial;background:white;color:#222;padding:20px}</style><h1>Local synthetic shop</h1><p>USD 10</p><p>EUR 20</p><x-card></x-card><script>customElements.define("x-card", class extends HTMLElement { connectedCallback() { this.attachShadow({ mode: "open" }).innerHTML = "<p>USD 5</p>"; } });</script></html>');
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const proc = spawn(browser, ['--headless=new', '--disable-gpu', ...platformFlags, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, 'about:blank'], { stdio: 'ignore' });
@@ -83,7 +83,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     assert.ok(worker, 'Unpacked PriceLens MV3 worker must start');
     const extensionId = new URL(worker.url).host;
     await evaluate(workerSession, `(async()=>{
-      self.fetch=()=>Promise.reject(new Error('External network disabled for smoke test'));
+      const own=self.fetch.bind(self);self.fetch=(url,...rest)=>String(url).startsWith(chrome.runtime.getURL(''))?own(url,...rest):Promise.reject(new Error('External network disabled for smoke test'));
       await chrome.storage.sync.set({enabled:true,target:'CNY',provider:'ecb',sourceHint:'',excludedHosts:[]});
       await chrome.storage.local.set({jevEnabled:false,'rates:ecb:CNY':{provider:'ecb',target:'CNY',fetchedAt:Date.now(),stale:false,rates:{USD:{rate:.125,asOf:new Date().toISOString()},EUR:{rate:.1,asOf:new Date().toISOString()}}}});
     })()`);
@@ -92,7 +92,9 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     await command('Emulation.setDeviceMetricsOverride', { width: 800, height: 600, deviceScaleFactor: 1, mobile: false }, page);
     await waitFor(page, `document.querySelectorAll('.pricelens-price').length===2`);
     assert.equal(await evaluate(page, `document.querySelector('.pricelens-price').textContent.includes('80.00')`), true);
-    assert.equal(await evaluate(page, `document.querySelectorAll('.pricelens-price[tabindex="0"]').length`), 1);
+    await waitFor(page, `document.querySelector('x-card').shadowRoot.querySelector('.pricelens-price')`);
+    assert.equal(await evaluate(page, `(() => { const b = document.querySelector('x-card').shadowRoot.querySelector('.pricelens-price'); return b.textContent.includes('40.00') && getComputedStyle(b).display === 'inline-block'; })()`), true, 'open shadow root price converts with the worker-supplied stylesheet');
+    assert.equal(await evaluate(page, `document.querySelectorAll('.pricelens-price[tabindex="0"]').length + document.querySelector('x-card').shadowRoot.querySelectorAll('.pricelens-price[tabindex="0"]').length`), 1);
     await command('Page.bringToFront', {}, page);
     await evaluate(page, `document.querySelector('.pricelens-price').focus()`);
     assert.equal(await evaluate(page, `document.activeElement.matches('.pricelens-price') && document.hasFocus()`), true, 'Price button must own real keyboard focus');
