@@ -9,7 +9,7 @@ const classify = c => {
 };
 globalThis.chrome = {
   runtime: { onMessage: { addListener() {} }, sendMessage: async m => {
-    if (m.type === 'getState') return { ok: true, settings: { ...PriceLens.DEFAULTS, target: 'EUR', jevEnabled: true, jevSavingsEnabled: false } };
+    if (m.type === 'getState') return { ok: true, settings: { ...PriceLens.DEFAULTS, target: 'EUR', jevEnabled: true } };
     if (m.type === 'getRates') return { ok: true, table: { provider: 'ecb', target: 'EUR', rates: Object.fromEntries(Object.entries({ USD: 1.1, CAD: 1.5, JPY: 160, CNY: 7.9 }).map(([c, rate]) => [c, { rate, asOf: '2026-09-22' }])), fetchedAt: Date.now(), stale: false } };
     if (m.type !== 'inferJev') throw new Error('Unexpected request: ' + m.type);
     calls.push(...m.candidates);

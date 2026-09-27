@@ -12,8 +12,8 @@ const MAX_STALE = 7 * 24 * 60 * 60_000;
 
 async function getSettings() {
   await localReady;
-  const [synced, local] = await Promise.all([chrome.storage.sync.get(null), chrome.storage.local.get(["jevEnabled", "jevSavingsEnabled"])]);
-  return settingsFrom({ ...synced, jevEnabled: local.jevEnabled === true, jevSavingsEnabled: local.jevSavingsEnabled === true });
+  const [synced, local] = await Promise.all([chrome.storage.sync.get(null), chrome.storage.local.get("jevEnabled")]);
+  return settingsFrom({ ...synced, jevEnabled: local.jevEnabled === true });
 }
 
 async function inferJev(message, sender) {
@@ -124,7 +124,7 @@ async function saveSettings(message) {
   if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error("设置无效。");
   if (input.provider === "ecb" && !ECB_CURRENCIES.includes(input.target)) throw new Error("此币种需使用 Wise。");
   await localReady;
-  const stored = await chrome.storage.local.get(["wiseToken", "jevKey", "jevEnabled", "jevSavingsEnabled"]);
+  const stored = await chrome.storage.local.get(["wiseToken", "jevKey"]);
   const token = message.token === null ? stored.wiseToken || "" : message.token;
   const jevKey = message.jevKey == null ? stored.jevKey || "" : message.jevKey;
   if (typeof jevKey !== "string" || jevKey.length > 4096 || /[^\x21-\x7e]/.test(jevKey)) throw new Error("Jev Key 格式无效。");
@@ -142,10 +142,12 @@ async function saveSettings(message) {
     else await chrome.storage.local.remove("wiseToken");
   }
   const settings = settingsFrom(input);
-  await chrome.storage.local.set({ jevEnabled: settings.jevEnabled, jevSavingsEnabled: settings.jevSavingsEnabled });
+  await chrome.storage.local.set({ jevEnabled: settings.jevEnabled });
+  await chrome.storage.local.remove("jevSavingsEnabled"); // Retired 0.1 experiment flag.
   if (jevKey) await chrome.storage.local.set({ jevKey });
   else await chrome.storage.local.remove("jevKey");
-  const { jevEnabled, jevSavingsEnabled, ...synced } = settings;
+  const { jevEnabled, ...synced } = settings;
+  await chrome.storage.sync.remove("jevSavingsEnabled");
   await chrome.storage.sync.set(synced);
   // AI consent is device-local, so notify tabs explicitly instead of relying on sync events.
   chrome.tabs.query({}).then((tabs) => Promise.allSettled(tabs.map((tab) => chrome.tabs.sendMessage(tab.id, { type: "refresh", resetJev: true })))).catch(() => {});
@@ -170,7 +172,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       case "getRates": return { table: await getRates(trusted && message.force === true) };
       case "inferJev": return inferJev(message, sender);
-      case "inferJevSavings": throw new Error("此版本不提供参考标价差。");
       case "saveSettings": {
         if (!trusted) throw new Error("仅插件设置页可修改设置。");
         // Serialize the entire read/modify/write, including credential snapshots.

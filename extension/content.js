@@ -147,25 +147,22 @@
 
   async function flushAI() {
     if (aiBusy || !settings.jevEnabled || !table) return;
-    const waiting = [...aiMemo.values()].filter((entry) => entry.pending && !entry.sent);
-    if (!waiting.length) return;
-    const kind = waiting[0].type || "currency";
-    const entries = waiting.filter((entry) => (entry.type || "currency") === kind).slice(0, 8);
+    const entries = [...aiMemo.values()].filter((entry) => entry.pending && !entry.sent).slice(0, 8);
+    if (!entries.length) return;
     const epoch = aiEpoch;
     aiBusy = true;
     entries.forEach((entry) => { entry.sent = true; });
     let decisions = [];
     try {
-      const result = await chrome.runtime.sendMessage({ type: kind === "savings" ? "inferJevSavings" : "inferJev", candidates: entries.map((entry) => entry.candidate) });
+      const result = await chrome.runtime.sendMessage({ type: "inferJev", candidates: entries.map((entry) => entry.candidate) });
       if (result.ok && Array.isArray(result.decisions)) decisions = result.decisions;
     } catch { /* Network/model failure cannot stop deterministic local conversion. */ }
     finally {
       if (epoch === aiEpoch && settings.jevEnabled) {
         entries.forEach((entry, i) => {
           entry.pending = false;
-          if (kind === "savings") entry.choice = C.pairSavings(entry.candidate, decisions[i]) ? decisions[i] : null;
-          else entry.currency = entry.possible.includes(decisions[i]) ? decisions[i] : null;
-          if (kind === "savings" || entry.currency) for (const anchor of entry.anchors) queue(anchor);
+          entry.currency = entry.possible.includes(decisions[i]) ? decisions[i] : null;
+          if (entry.currency) for (const anchor of entry.anchors) queue(anchor);
           entry.anchors.clear();
         });
       }
@@ -563,8 +560,7 @@
       const stale = price.currency !== settings.target && table.stale;
       if (badge.dataset.stale !== String(stale)) badge.dataset.stale = String(stale);
       if (badge.dataset.pricelensSavings !== String(Boolean(price.savings))) badge.dataset.pricelensSavings = String(Boolean(price.savings));
-      const viaAI = ai || price.savings?.source === "ai";
-      const label = `${price.savings ? " 参考标价差约 " : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? " 起" : ""}${viaAI ? " · AI" : ""}${stale ? " · 缓存" : ""}`;
+      const label = `${price.savings ? " 参考标价差约 " : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? " 起" : ""}${ai ? " · AI" : ""}${stale ? " · 缓存" : ""}`;
       if (badge.textContent !== label) badge.textContent = label;
       const rate = table.rates[price.currency];
       const source = table.provider === "wise" ? "Wise 中间价" : "ECB / Frankfurter 日更参考汇率（非实时）";
@@ -572,7 +568,7 @@
       const quote = price.currency === settings.target ? "本币差额，不涉及换汇。" : `${source}\n报价时间：${rate.asOf}\n获取时间：${new Date(table.fetchedAt).toLocaleString("zh-CN")}`;
       let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${stale ? `更新失败，使用旧缓存：${table.warning}\n` : ""}仅供参考，不含手续费；实际结算以商家/银行为准。`;
       if (price.minimum) title += "\n这是起价下限，不是固定售价或最终结算金额。";
-      if (price.savings) title += `\n仅为页面所列参考价与现价的数字差，由本地计算；价格关系${{ structured: "来自页面结构化数据的原价标记", strike: "按页面划线格式判断，可能有误", ai: "由 Jev 判断，可能有误" }[price.savings.source]}。税费口径与购买资格未核实，不代表实际可省金额或最终结算优惠；参考价不等于历史成交价。`;
+      if (price.savings) title += `\n仅为页面所列参考价与现价的数字差，由本地计算；价格关系${{ structured: "来自页面结构化数据的原价标记", strike: "按页面划线格式判断，可能有误" }[price.savings.source]}。税费口径与购买资格未核实，不代表实际可省金额或最终结算优惠；参考价不等于历史成交价。`;
       else if (ai) title += `\n币种 ${price.currency} 由 Jev 辅助推断，可能有误，请核对原页面。`;
       if (badge.title !== title) {
         badge.title = title;
@@ -729,20 +725,7 @@
       if (!savingsRecords.has(scope) && later(scope)) continue;
       const prepared = savingsCandidate(scope);
       if (!prepared) { removeRecord(scope, savingsRecords); continue; }
-      let savings = C.localSavings(prepared.candidate, structuredPairs);
-      if (!savings && settings.jevEnabled && settings.jevSavingsEnabled) {
-        const key = `savings:${JSON.stringify(prepared.candidate)}`;
-        if (!aiMemo.has(key) && aiMemo.size < 32) aiMemo.set(key, { type: "savings", candidate: prepared.candidate, pending: true, sent: false, choice: null, anchors: new Set() });
-        const entry = aiMemo.get(key);
-        if (entry?.pending) {
-          // Keep the node for reuse, but never display a stale difference while a changed pair is unverified.
-          for (const badge of savingsRecords.get(scope)?.badges || []) badge.remove();
-          entry.anchors.add(scope);
-          continue;
-        }
-        const pair = entry && C.pairSavings(prepared.candidate, entry.choice);
-        savings = pair && { ...pair, source: "ai" };
-      }
+      const savings = C.localSavings(prepared.candidate, structuredPairs);
       if (!savings) { removeRecord(scope, savingsRecords); continue; }
       renderPrices(prepared.anchors[savings.currentIndex], [{ ...savings, original: savings.current.original, savings }], savingsRecords, scope);
     }

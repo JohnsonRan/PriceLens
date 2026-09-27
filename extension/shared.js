@@ -11,7 +11,7 @@
     ILS: "以色列新谢克尔", AED: "阿联酋迪拉姆", SAR: "沙特里亚尔", RUB: "俄罗斯卢布",
   });
   const ECB_CURRENCIES = "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR ILS INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR".split(" ");
-  const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], savingsEnabled: true, jevEnabled: false, jevSavingsEnabled: false });
+  const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], savingsEnabled: true, jevEnabled: false });
   const SYMBOLS = {
     "US$": "USD", "CA$": "CAD", "C$": "CAD", "AU$": "AUD", "A$": "AUD",
     "NZ$": "NZD", "HK$": "HKD", "SG$": "SGD", "S$": "SGD", "NT$": "TWD",
@@ -115,8 +115,6 @@
       enabled: value.enabled !== false,
       savingsEnabled: value.savingsEnabled !== false,
       jevEnabled: value.jevEnabled === true,
-      // Store v0.1: the unaccepted reference-difference experiment cannot be enabled by old settings.
-      jevSavingsEnabled: false,
       target: Object.hasOwn(CURRENCIES, value.target) ? value.target : DEFAULTS.target,
       provider: value.provider === "wise" ? "wise" : "ecb",
       sourceHint: Object.hasOwn(CURRENCIES, value.sourceHint) ? value.sourceHint : "",

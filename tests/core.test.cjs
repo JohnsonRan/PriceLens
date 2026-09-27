@@ -253,7 +253,7 @@ const legacyPair = {
 const savingsMessage = (candidates = [legacyPair]) => ({ type: "inferJevSavings", candidates });
 const savingsAI = { ...activeAI, jevSavingsEnabled: true };
 
-test("store release rejects every savings request, including legacy opt-in", async () => {
+test("retired AI savings requests are rejected without any upload, including legacy opt-in", async () => {
   for (const [sync, local, options, url] of [
     [{}, savingsAI, { granted: true }, "https://shop.test/"],
     [{ jevSavingsEnabled: true }, activeAI, { granted: true }, "https://shop.test/"],
@@ -379,14 +379,15 @@ test("local reference-difference toggle defaults on, syncs, and requires a boole
   assert.equal(w.calls.length, 0);
 });
 
-test("legacy savings flags cannot enable the store release on read or save", async () => {
-  assert.equal(C.settingsFrom({ jevEnabled: true, jevSavingsEnabled: true }).jevSavingsEnabled, false);
+test("retired AI savings flag is ignored on read and removed on save", async () => {
+  assert.equal("jevSavingsEnabled" in C.settingsFrom({ jevEnabled: true, jevSavingsEnabled: true }), false);
   const w = worker({ jevSavingsEnabled: true }, savingsAI, { granted: true });
-  assert.equal((await w.send({ type: "getState" }, false)).settings.jevSavingsEnabled, false);
+  assert.equal("jevSavingsEnabled" in (await w.send({ type: "getState" }, false)).settings, false);
   const saved = await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, jevEnabled: true, jevSavingsEnabled: true }, token: null, jevKey: null });
   assert.equal(saved.ok, true);
-  assert.equal(saved.settings.jevSavingsEnabled, false);
-  assert.equal(w.local.jevSavingsEnabled, false);
+  assert.equal("jevSavingsEnabled" in saved.settings, false);
+  assert.equal("jevSavingsEnabled" in w.local, false, "stale local flag is cleaned up");
+  assert.equal("jevSavingsEnabled" in w.sync, false, "stale synced flag is cleaned up");
   assert.equal(saved.settings.jevEnabled, true, "ordinary currency AI remains available");
   assert.equal(saved.settings.savingsEnabled, true, "local reference differences need no AI opt-in");
   assert.equal((await w.send(savingsMessage(), false)).ok, false);
