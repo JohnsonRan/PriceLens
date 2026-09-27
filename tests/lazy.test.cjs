@@ -8,22 +8,13 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
 
-function browserPath() {
-  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
-  const installed = path.join(os.homedir(), "AppData/Local/ms-playwright");
-  if (!fs.existsSync(installed)) return null;
-  for (const name of fs.readdirSync(installed).filter((n) => /^chromium_headless_shell-\d+$/.test(n)).sort((a, b) => Number(b.split("-")[1]) - Number(a.split("-")[1]))) {
-    const exe = path.join(installed, name, "chrome-headless-shell-win64/chrome-headless-shell.exe");
-    if (fs.existsSync(exe)) return exe;
-  }
-  return null;
-}
-const browser = browserPath();
+const { shellBrowser, platformFlags } = require("./browser.cjs");
+const browser = shellBrowser();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("real-time off-screen deferral: lazy-regression", { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests", timeout: 30000 }, async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-lazy-"));
-  const proc = spawn(browser, ["--headless=new", "--disable-gpu", "--disable-extensions", "--no-first-run", "--window-size=800,600", "--remote-debugging-port=0", `--user-data-dir=${profile}`, pathToFileURL(path.join(__dirname, "fixtures/lazy-regression.html")).href], { stdio: "ignore" });
+  const proc = spawn(browser, ["--headless=new", "--disable-gpu", ...platformFlags, "--disable-extensions", "--no-first-run", "--window-size=800,600", "--remote-debugging-port=0", `--user-data-dir=${profile}`, pathToFileURL(path.join(__dirname, "fixtures/lazy-regression.html")).href], { stdio: "ignore" });
   let socket;
   try {
     const portFile = path.join(profile, "DevToolsActivePort");

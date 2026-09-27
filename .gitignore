@@ -11,6 +11,7 @@ tests/*
 !tests/popup.test.cjs
 !tests/price-bounds.test.cjs
 !tests/lazy.test.cjs
+!tests/browser.cjs
 !tests/fixtures/
 tests/fixtures/*
 !tests/fixtures/dom-regression.html

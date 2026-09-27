@@ -1,0 +1,30 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Only test browsers are downloaded; the extension itself has no npm dependencies.
+      # Headless shell runs the DOM fixtures; full Chromium loads the unpacked MV3 extension.
+      - name: Install Chromium
+        run: npx -y playwright@1.63.0 install --with-deps chromium chromium-headless-shell
+      - name: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test-output.txt
+          # A skipped browser test is a missing browser, not a pass.
+          grep -q '^ℹ skipped 0$' test-output.txt || { echo "::error::Browser tests were skipped"; exit 1; }

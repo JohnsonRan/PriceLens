@@ -6,17 +6,8 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { spawnSync } = require("node:child_process");
 
-function browserPath() {
-  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
-  const installed = path.join(os.homedir(), "AppData/Local/ms-playwright");
-  if (!fs.existsSync(installed)) return null;
-  for (const name of fs.readdirSync(installed).filter((n) => /^chromium_headless_shell-\d+$/.test(n)).sort((a, b) => Number(b.split("-")[1]) - Number(a.split("-")[1]))) {
-    const exe = path.join(installed, name, "chrome-headless-shell-win64/chrome-headless-shell.exe");
-    if (fs.existsSync(exe)) return exe;
-  }
-  return null;
-}
-const browser = browserPath();
+const { shellBrowser, platformFlags } = require("./browser.cjs");
+const browser = shellBrowser();
 for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-regression", "currency-context-regression", "generality-regression", "local-savings-regression", "jsonld-currency-regression"]) for (const systemDark of [false, true]) test(`real DOM regression: ${fixture} (${systemDark ? "dark" : "light"} system)`, { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests" }, () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-dom-"));
   try {
@@ -36,7 +27,7 @@ for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-
       fs.writeFileSync(file, html);
     }
     const run = spawnSync(browser, [
-      "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-background-networking",
+      "--headless=new", "--disable-gpu", ...platformFlags, "--disable-extensions", "--disable-background-networking",
       // Tall viewport: fixtures assert whole-page placement; lazy.test.cjs covers off-screen deferral itself.
       fixture === "popup-regression" ? "--window-size=360,600" : "--window-size=800,8000",
       `--blink-settings=preferredColorScheme=${systemDark ? 0 : 1}`,

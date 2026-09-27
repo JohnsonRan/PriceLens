@@ -9,17 +9,8 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-function browserPath() {
-  if (process.env.MV3_CHROME_BIN) return process.env.MV3_CHROME_BIN;
-  const root = path.join(os.homedir(), 'AppData/Local/ms-playwright');
-  if (!fs.existsSync(root)) return null;
-  for (const name of fs.readdirSync(root).filter(n => /^chromium-\d+$/.test(n)).sort((a,b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))) {
-    const file = path.join(root, name, 'chrome-win64/chrome.exe');
-    if (fs.existsSync(file)) return file;
-  }
-  return null;
-}
-const browser = browserPath();
+const { fullBrowser, platformFlags } = require('./browser.cjs');
+const browser = fullBrowser();
 test('real MV3: trusted storage/messages, live content toggles and keyboard-accessible details', { skip: browser ? false : 'Set MV3_CHROME_BIN to full Chromium (not headless shell)', timeout: 45000 }, async () => {
   const extension = path.resolve(__dirname, '../extension');
   const evidence = fs.mkdtempSync(path.join(os.tmpdir(), 'pricelens-mv3-'));
@@ -30,7 +21,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     res.end('<!doctype html><html lang="en"><title>PriceLens MV3 smoke</title><style>body{font:18px Arial;background:white;color:#222;padding:20px}</style><h1>Local synthetic shop</h1><p>USD 10</p><p>EUR 20</p></html>');
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  const proc = spawn(browser, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, 'about:blank'], { stdio: 'ignore' });
+  const proc = spawn(browser, ['--headless=new', '--disable-gpu', ...platformFlags, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, 'about:blank'], { stdio: 'ignore' });
   let launchError, socket, command;
   proc.on('error', error => { launchError = error; });
   const pending = new Map();

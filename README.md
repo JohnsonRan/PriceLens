@@ -33,15 +33,15 @@
 
 ## 开发与验证
 
-需要 Node.js 24 或更新版本；测试只用 Node 标准库，无需安装 npm 依赖。
+需要 Node.js 24 或更新版本；推送和 PR 会在 GitHub Actions（Ubuntu + Playwright Chromium）上自动运行全部测试，有测试被跳过即视为失败。测试只用 Node 标准库，无需安装 npm 依赖。
 
 ```sh
 npm test
 ```
 
-默认测试只运行仓库明确列出的产品回归，使用假凭据、模拟网络和独立临时浏览器资料，不调用付费服务。DOM 测试需要 Chromium/Chrome：用 `CHROME_BIN` 指定可执行文件；Windows 也会查找本机已有的 Playwright Chromium headless shell。浏览器不存在时 DOM 测试会明确跳过，**纯逻辑通过不等于浏览器验证通过**。
+默认测试只运行仓库明确列出的产品回归，使用假凭据、模拟网络和独立临时浏览器资料，不调用付费服务。DOM 测试需要 Chromium/Chrome：用 `CHROME_BIN` 指定可执行文件；也会查找本机（Windows 或 Linux）已有的 Playwright Chromium headless shell。浏览器不存在时 DOM 测试会明确跳过，**纯逻辑通过不等于浏览器验证通过**。
 
-真实 MV3 冒烟测试另外需要完整 Chromium（不是 headless shell）：设置 `MV3_CHROME_BIN`，或使用 Windows 已安装的 Playwright Chromium。它在独立临时 profile 中加载实际扩展，使用合成缓存汇率并禁用扩展外部请求，验证后台消息、设置保存、页面启停和 Enter/Escape；缺少浏览器时明确跳过。该测试不验证线上服务、权限弹窗或长期 worker 回收行为。
+真实 MV3 冒烟测试另外需要完整 Chromium（不是 headless shell）：设置 `MV3_CHROME_BIN`，或使用本机已安装的 Playwright Chromium。它在独立临时 profile 中加载实际扩展，使用合成缓存汇率并禁用扩展外部请求，验证后台消息、设置保存、页面启停和 Enter/Escape；缺少浏览器时明确跳过。该测试不验证线上服务、权限弹窗或长期 worker 回收行为。
 
 ## 隐私与反馈
 
