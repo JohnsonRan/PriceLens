@@ -111,6 +111,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     await command('Emulation.setDeviceMetricsOverride', { width: 360, height: 640, deviceScaleFactor: 1, mobile: false }, popup);
     await waitFor(popup, `document.querySelector('#refresh') && !document.querySelector('#refresh').disabled`);
     assert.equal(await evaluate(popup, `document.querySelector('#status-title').textContent.includes('报价')`), true);
+    assert.equal(await evaluate(popup, `document.querySelector('#version').textContent`), `v${manifest.version}`, 'popup shows the installed manifest version');
     await evaluate(popup, `document.querySelector('#enabled').click(); document.querySelector('#save').click()`);
     await waitFor(page, `document.querySelectorAll('.pricelens-price').length===0`);
     await waitFor(popup, `!document.querySelector('#refresh').disabled`);

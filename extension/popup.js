@@ -119,6 +119,7 @@ $("refresh").addEventListener("click", async () => {
 (async () => {
   busy = true;
   document.documentElement.lang = C.uiLocale();
+  $("version").textContent = `v${chrome.runtime.getManifest().version}`;
   for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = C.t(el.dataset.i18n);
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = C.t(el.dataset.i18nPlaceholder);
   for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", C.t(el.dataset.i18nAriaLabel));

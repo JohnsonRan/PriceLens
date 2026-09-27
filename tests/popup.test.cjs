@@ -24,7 +24,7 @@ async function popup(settings = {}, jevStatus = { state: "idle", message: "尚�
     chrome: {
       permissions: { request: async () => granted },
       tabs: { query: async () => [{ id: 1, url: "https://shop.test/" }], sendMessage: async () => {} },
-      runtime: { sendMessage: async (message) => {
+      runtime: { getManifest: () => ({ version: "9.8.7" }), sendMessage: async (message) => {
         if (message.type === "getState") { if (failState) throw new Error("模拟后台不可用"); return response(); }
         if (message.type === "saveSettings") { saved = message.settings; return response(); }
         if (message.type === "getRates") return { ok: true, table: { target: saved.target, provider: "ecb", rates: { USD: { rate: 0.14, asOf: "2026-09-21" } }, fetchedAt: Date.now() } };

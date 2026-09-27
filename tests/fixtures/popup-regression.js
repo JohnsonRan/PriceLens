@@ -7,7 +7,7 @@ const response = () => ({ ok: true, settings: { ...saved }, hasToken: false, has
 globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after this script in the popup head
   permissions: { request: async (options) => { permissions.push(options); return granted; } },
   tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async () => {} },
-  runtime: { sendMessage: async (message) => {
+  runtime: { getManifest: () => ({ version: '9.8.7' }), sendMessage: async (message) => {
     messages.push(message);
     saved ||= { ...PriceLens.DEFAULTS, jevEnabled: true };
     if (message.type === 'getState') return response();
@@ -29,6 +29,7 @@ window.addEventListener('load', async () => {
       return; // Screenshot mode does not exercise or mutate saved mock settings.
     }
     const logo = document.querySelector('header .logo');
+    check('header shows the manifest version, readable and on one line', el('version').textContent === 'v9.8.7' && el('version').checkVisibility() && parseFloat(getComputedStyle(el('version')).fontSize) >= 12 && el('version').getClientRects().length === 1 && el('version').getBoundingClientRect().right <= innerWidth);
     check('header displays the generated brand icon', logo?.tagName === 'IMG' && logo.complete && logo.naturalWidth === 128 && logo.naturalHeight === 128);
     check('brand icon has no opaque white tile in either theme', getComputedStyle(logo).backgroundColor === 'rgba(0, 0, 0, 0)');
     check('all secondary panels stay collapsed even with AI already enabled', [...document.querySelectorAll('details')].every((node) => !node.open));

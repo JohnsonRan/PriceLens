@@ -7,7 +7,7 @@ globalThis.chrome = {
   get i18n() { return window.PL_I18N; },
   permissions: { request: async () => true },
   tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async () => {} },
-  runtime: { sendMessage: async (message) => {
+  runtime: { getManifest: () => ({ version: '9.8.7' }), sendMessage: async (message) => {
     saved ||= { ...PriceLens.DEFAULTS };
     const state = { ok: true, settings: { ...saved }, hasToken: false, hasJevKey: false, jevStatus: { state: 'idle', message: PriceLens.t('jevIdle') } };
     if (message.type === 'getState') return state;
@@ -26,6 +26,7 @@ window.addEventListener('load', async () => {
     const han = /[\u4e00-\u9fff]/;
     const visible = document.body.innerText.replace(/价译/g, '');
     check('no Chinese text remains in the English popup (brand mark aside)', !han.test(visible) && !han.test(document.title));
+    check('version shows in the English header too', el('version').textContent === 'v9.8.7');
     check('html lang follows the UI language', document.documentElement.lang === 'en');
     check('labels come from the en locale', el('save').textContent === 'Save' && document.querySelector('[data-i18n="summaryAdvanced"]').textContent === 'Rates, recognition and AI');
     check('currency names are English', [...el('target').options].some((o) => o.textContent === 'TWD · New Taiwan Dollar'));
