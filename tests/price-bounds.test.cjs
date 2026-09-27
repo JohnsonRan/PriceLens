@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+globalThis.chrome = { i18n: require("./i18n.cjs").i18n() }; // shared.js reads UI text through chrome.i18n
 const C = require('../extension/shared.js');
 
 test('trailing starting-price markers retain bounds without becoming closed ranges', () => {

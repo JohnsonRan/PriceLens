@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "价译 · PriceLens",
+  "name": "__MSG_extName__",
+  "default_locale": "zh_CN",
   "version": "0.2.0",
-  "description": "保留网页原价，在旁边显示你的货币。支持央行日更参考汇率与 Wise 最新汇率。",
+  "description": "__MSG_extDescription__",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["https://api.frankfurter.dev/*"],
@@ -10,7 +11,7 @@
   "homepage_url": "https://github.com/JohnsonRan/PriceLens",
   "background": { "service_worker": "background.js" },
   "action": {
-    "default_title": "价译 · PriceLens",
+    "default_title": "__MSG_extName__",
     "default_popup": "popup.html",
     "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }
   },

@@ -5,8 +5,11 @@
   // and 3-decimal currencies (KWD, BHD, OMR, JOD, TND), whose "12.500" parseAmount would read as thousands.
   const CODES = ("CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB " +
     "ARS CLP EGP PKR NGN KZT UAH QAR BDT KES LKR").split(" ");
-  const currencyName = (code, locale = "zh-CN") => new Intl.DisplayNames([locale], { type: "currency" }).of(code);
-  const CURRENCIES = Object.freeze(Object.fromEntries(CODES.map((code) => [code, currencyName(code)])));
+  // UI text comes from _locales via chrome.i18n (zh_CN is the default locale).
+  const t = (key, ...subs) => globalThis.chrome?.i18n?.getMessage(key, subs.map(String)) || key;
+  const uiLocale = () => globalThis.chrome?.i18n?.getUILanguage?.() || "zh-CN";
+  const currencyName = (code, locale = uiLocale()) => new Intl.DisplayNames([locale], { type: "currency" }).of(code);
+  const CURRENCIES = Object.freeze(Object.fromEntries(CODES.map((code) => [code, true])));
   const ECB_CURRENCIES = "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR ILS INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR".split(" ");
   const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], savingsEnabled: true, jevEnabled: false });
   const SYMBOLS = {
@@ -210,10 +213,10 @@
   }
 
   function formatMoney(amount, currency) {
-    return new Intl.NumberFormat("zh-CN", { style: "currency", currency, currencyDisplay: "code" }).format(amount);
+    return new Intl.NumberFormat(uiLocale(), { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
+  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

@@ -4,7 +4,7 @@ const messages = [], permissions = [], errors = [];
 window.addEventListener('error', (event) => errors.push(event.message));
 window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
 const response = () => ({ ok: true, settings: { ...saved }, hasToken: false, hasJevKey: true, jevStatus: { state: 'idle', message: '尚未调用模型' } });
-globalThis.chrome = {
+globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after this script in the popup head
   permissions: { request: async (options) => { permissions.push(options); return granted; } },
   tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async () => {} },
   runtime: { sendMessage: async (message) => {

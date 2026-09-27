@@ -2,6 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const vm = require("node:vm");
 const fs = require("node:fs");
+globalThis.chrome = { i18n: require("./i18n.cjs").i18n() }; // shared.js reads UI text through chrome.i18n
 const C = require("../extension/shared.js");
 
 async function popup(settings = {}, jevStatus = { state: "idle", message: "尚未调用模型" }, granted = true, failState = false) {
@@ -19,7 +20,7 @@ async function popup(settings = {}, jevStatus = { state: "idle", message: "尚�
   const context = vm.createContext({
     PriceLens: C, console, URL, Date,
     Option: class { constructor(text, value) { Object.assign(this, { text, value }); } },
-    document: { getElementById: element, querySelector: element },
+    document: { getElementById: element, querySelector: element, querySelectorAll: () => [], documentElement: {} },
     chrome: {
       permissions: { request: async () => granted },
       tabs: { query: async () => [{ id: 1, url: "https://shop.test/" }], sendMessage: async () => {} },
@@ -38,7 +39,7 @@ async function popup(settings = {}, jevStatus = { state: "idle", message: "尚�
 
 test("automatic currency label explains local vs Jev recognition, without claiming success", async () => {
   const html = fs.readFileSync(require.resolve("../extension/popup.html"), "utf8");
-  assert.match(html, /<option value="">自动识别币种<\/option>/);
+  assert.match(html, /<option value="" data-i18n="optionAutoDetect">自动识别币种<\/option>/);
   assert.ok(!html.includes("自动判断 · 不确定就跳过"));
   const local = await popup();
   assert.match(local("recognition-hint").textContent, /使用页面币种信息；不确定时跳过/);

@@ -7,6 +7,7 @@ const { pathToFileURL } = require("node:url");
 const { spawnSync } = require("node:child_process");
 
 const { shellBrowser, platformFlags } = require("./browser.cjs");
+const { i18nScript } = require("./i18n.cjs");
 const browser = shellBrowser();
 for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-regression", "currency-context-regression", "generality-regression", "local-savings-regression", "jsonld-currency-regression", "shadow-regression"]) for (const systemDark of [false, true]) test(`real DOM regression: ${fixture} (${systemDark ? "dark" : "light"} system)`, { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests" }, () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-dom-"));
@@ -33,6 +34,10 @@ for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-
         .replace("<head>", `<head><base href="${pathToFileURL(extension + path.sep).href}"><script src="${pathToFileURL(path.join(__dirname, "fixtures/popup-regression.js")).href}"></script>`);
       fs.writeFileSync(file, html);
     }
+    // Fixtures load from a temp copy: <base> keeps relative paths, and chrome.i18n messages are inlined.
+    const localized = path.join(profile, "fixture.html");
+    fs.writeFileSync(localized, fs.readFileSync(file, "utf8").replace(/<meta charset="utf-8">(<base [^>]*>)?/, (match, base) => `<meta charset="utf-8">${base || `<base href="${pathToFileURL(file).href}">`}${i18nScript()}`));
+    file = localized;
     const run = spawnSync(browser, [
       "--headless=new", "--disable-gpu", ...platformFlags, "--disable-extensions", "--disable-background-networking",
       // Tall viewport: fixtures assert whole-page placement; lazy.test.cjs covers off-screen deferral itself.

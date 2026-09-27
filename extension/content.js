@@ -102,16 +102,16 @@
     const dialog = document.createElement('dialog');
     dialog.className = 'pricelens-details';
     dialog.setAttribute(MARK, '');
-    dialog.setAttribute('aria-label', '换算依据');
+    dialog.setAttribute('aria-label', C.t('detailsTitle'));
     dialog.dataset.pricelensTheme = badge.dataset.pricelensTheme;
     const heading = document.createElement('h2');
-    heading.textContent = '换算依据';
+    heading.textContent = C.t('detailsTitle');
     const text = document.createElement('p');
     text.textContent = badge.title;
     const close = document.createElement('button');
     close.type = 'button';
     close.autofocus = true;
-    close.textContent = '关闭';
+    close.textContent = C.t('close');
     close.addEventListener('click', () => closeDetails());
     dialog.append(heading, text, close);
     dialog.addEventListener('cancel', (event) => { event.preventDefault(); closeDetails(); });
@@ -630,19 +630,19 @@
       const stale = price.currency !== settings.target && table.stale;
       if (badge.dataset.stale !== String(stale)) badge.dataset.stale = String(stale);
       if (badge.dataset.pricelensSavings !== String(Boolean(price.savings))) badge.dataset.pricelensSavings = String(Boolean(price.savings));
-      const label = `${price.savings ? " 参考标价差约 " : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? " 起" : ""}${ai ? " · AI" : ""}${stale ? " · 缓存" : ""}`;
+      const label = `${price.savings ? ` ${C.t("badgeSavings")} ` : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? ` ${C.t("badgeFrom")}` : ""}${ai ? " · AI" : ""}${stale ? ` · ${C.t("badgeCache")}` : ""}`;
       if (badge.textContent !== label) badge.textContent = label;
       const rate = table.rates[price.currency];
-      const source = { wise: "Wise 中间价", blend: "Frankfurter 多家央行参考汇率综合值（日更，非实时）" }[rate?.source ?? table.provider] ?? "ECB / Frankfurter 日更参考汇率（非实时）";
-      const basis = price.savings ? `参考价 ${C.formatMoney(price.savings.reference.amount, price.currency)} − 现价 ${C.formatMoney(price.savings.current.amount, price.currency)} = ${C.formatMoney(price.amount, price.currency)}` : `${price.original} (${price.currency})`;
-      const quote = price.currency === settings.target ? "本币差额，不涉及换汇。" : `${source}\n报价时间：${rate.asOf}\n获取时间：${new Date(table.fetchedAt).toLocaleString("zh-CN")}`;
-      let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${stale ? `更新失败，使用旧缓存：${table.warning}\n` : ""}仅供参考，不含手续费；实际结算以商家/银行为准。`;
-      if (price.minimum) title += "\n这是起价下限，不是固定售价或最终结算金额。";
-      if (price.savings) title += `\n仅为页面所列参考价与现价的数字差，由本地计算；价格关系${{ structured: "来自页面结构化数据的原价标记", strike: "按页面划线格式判断，可能有误" }[price.savings.source]}。税费口径与购买资格未核实，不代表实际可省金额或最终结算优惠；参考价不等于历史成交价。`;
-      else if (ai) title += `\n币种 ${price.currency} 由 Jev 辅助推断，可能有误，请核对原页面。`;
+      const source = C.t({ wise: "sourceWise", blend: "sourceBlend" }[rate?.source ?? table.provider] ?? "sourceEcb");
+      const basis = price.savings ? C.t("basisSavings", C.formatMoney(price.savings.reference.amount, price.currency), C.formatMoney(price.savings.current.amount, price.currency), C.formatMoney(price.amount, price.currency)) : `${price.original} (${price.currency})`;
+      const quote = price.currency === settings.target ? C.t("quoteSameCurrency") : C.t("quoteTimes", source, rate.asOf, new Date(table.fetchedAt).toLocaleString(C.uiLocale()));
+      let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${stale ? `${C.t("staleWarning", table.warning)}\n` : ""}${C.t("disclaimer")}`;
+      if (price.minimum) title += `\n${C.t("minimumNote")}`;
+      if (price.savings) title += `\n${C.t("savingsNote", C.t(price.savings.source === "structured" ? "savingsStructured" : "savingsStrike"))}`;
+      else if (ai) title += `\n${C.t("aiCurrencyNote", price.currency)}`;
       if (badge.title !== title) {
         badge.title = title;
-        badge.setAttribute("aria-label", `${label.trim()}，查看换算依据；方向键切换价格`);
+        badge.setAttribute("aria-label", C.t("badgeAria", label.trim()));
         if (badge === detailBadge) detailDialog.querySelector('p').textContent = title;
       }
       const position = record?.positions[badges.length];

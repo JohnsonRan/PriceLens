@@ -5,27 +5,27 @@
   const controllers = new Set();
   let calls = [];
   let generation = 0;
-  let status = { state: "idle", message: "尚未调用模型" };
+  let status = { state: "idle", message: PriceLens.t("jevIdle") };
   const MODEL = "jev-latest";
   function reset() {
     generation++;
     for (const controller of controllers) controller.abort();
     cache.clear();
     requests.clear();
-    status = { state: "idle", message: "尚未调用模型" };
+    status = { state: "idle", message: PriceLens.t("jevIdle") };
   }
 
   function batch(input) {
-    if (!Array.isArray(input) || !input.length || input.length > 8) throw new Error("Jev 每批仅接受 1–8 个候选。");
+    if (!Array.isArray(input) || !input.length || input.length > 8) throw new Error(PriceLens.t("errJevBatch"));
     return input;
   }
 
   function validate(input) {
     return batch(input).map((item) => {
-      if (typeof item?.original !== "string" || item.original.length > 80 || typeof item.context !== "string" || item.context.length > 360 || !item.context.includes(item.original)) throw new Error("Jev 候选或上下文无效。");
+      if (typeof item?.original !== "string" || item.original.length > 80 || typeof item.context !== "string" || item.context.length > 360 || !item.context.includes(item.original)) throw new Error(PriceLens.t("errJevCandidate"));
       const prices = PriceLens.findPrices(item.original, "", true);
       const price = prices[0];
-      if (prices.length !== 1 || price.start !== 0 || price.end !== item.original.length || price.currency || !price.possibleCurrencies.length) throw new Error("Jev 仅处理本地未确定币种的原文金额。");
+      if (prices.length !== 1 || price.start !== 0 || price.end !== item.original.length || price.currency || !price.possibleCurrencies.length) throw new Error(PriceLens.t("errJevAmbiguousOnly"));
       return { original: price.original, context: item.context, currencies: price.possibleCurrencies };
     });
   }
@@ -46,7 +46,7 @@
   const accepted = (answer, allowed) => assess(answer, allowed).value;
 
   function updateStatus(outcomes, cached = false) {
-    status = { state: "ok", message: `最近一批币种确认 ${outcomes.filter((item) => item.value).length}/${outcomes.length} 个候选${cached ? "（缓存结果）" : ""}`, cached, at: Date.now() };
+    status = { state: "ok", message: PriceLens.t("jevStatusBatch", outcomes.filter((item) => item.value).length, outcomes.length) + (cached ? PriceLens.t("jevCached") : ""), cached, at: Date.now() };
   }
 
   function infer(input, key) {
@@ -77,12 +77,14 @@
     const requestKey = JSON.stringify(keys);
     if (requests.has(requestKey)) return requests.get(requestKey);
     calls = calls.filter((at) => Date.now() - at < 60_000);
-    if (calls.length >= 6) throw new Error("Jev 已达到本分钟 6 批请求上限，保留本地识别。");
+    if (calls.length >= 6) throw new Error(PriceLens.t("errJevRateLimit"));
     calls.push(Date.now());
     const version = generation;
     const controller = new AbortController();
     controllers.add(controller);
     const timeout = setTimeout(() => controller.abort(), 10_000);
+    // Service errors keep their specific message; anything else (network, abort) gets a generic one.
+    const serviceError = (key, ...subs) => Object.assign(new Error(PriceLens.t(key, ...subs)), { jev: true });
     const run = (async () => {
       try {
         const response = await fetch("https://api.typesafe.ai/v1/systemone", {
@@ -90,18 +92,18 @@
           body: JSON.stringify({ model: MODEL, state: JSON.stringify({ candidates }), questions }),
           signal: controller.signal, credentials: "omit", redirect: "error", cache: "no-store",
         });
-        if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Jev Key 无效或没有访问权限。" : `Jev 请求失败（HTTP ${response.status}）。`);
+        if (!response.ok) throw response.status === 401 || response.status === 403 ? serviceError("errJevAuth") : serviceError("errJevHttp", response.status);
         let data;
-        try { data = await response.json(); } catch { throw new Error("Jev 返回无效 JSON。"); }
-        if (!data?.answers || typeof data.answers !== "object") throw new Error("Jev 返回无效结果。");
-        if (version !== generation || controller.signal.aborted) throw new Error("Jev 设置已改变，本次结果已丢弃。");
+        try { data = await response.json(); } catch { throw serviceError("errJevJson"); }
+        if (!data?.answers || typeof data.answers !== "object") throw serviceError("errJevResult");
+        if (version !== generation || controller.signal.aborted) throw serviceError("errJevStale");
         const outcomes = candidates.map((item, i) => decide(data.answers, item, i));
         outcomes.forEach((outcome, i) => cache.set(keys[i], { at: Date.now(), ...outcome }));
         while (cache.size > 256) cache.delete(cache.keys().next().value);
         updateStatus(outcomes);
         return outcomes.map((outcome) => outcome.value);
       } catch (error) {
-        const message = controller.signal.aborted ? "Jev 请求取消或超时，保留本地识别。" : error.message?.startsWith("Jev ") ? error.message : "Jev 网络请求失败，保留本地识别。";
+        const message = controller.signal.aborted ? PriceLens.t("errJevAborted") : error.jev ? error.message : PriceLens.t("errJevNetwork");
         if (version === generation) status = { state: "error", message, at: Date.now() };
         throw new Error(message);
       } finally {

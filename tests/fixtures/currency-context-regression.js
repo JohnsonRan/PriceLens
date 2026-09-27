@@ -7,7 +7,7 @@ const classify = c => {
   const codes = [...new Set(c.context.match(/\b(?:USD|CAD|CNY|JPY)\b/g) || [])];
   return /not a product price/.test(c.context) || codes.length !== 1 ? null : codes[0];
 };
-globalThis.chrome = {
+globalThis.chrome = { i18n: window.PL_I18N,
   runtime: { onMessage: { addListener() {} }, sendMessage: async m => {
     if (m.type === 'getState') return { ok: true, settings: { ...PriceLens.DEFAULTS, target: 'EUR', jevEnabled: true } };
     if (m.type === 'getRates') return { ok: true, table: { provider: 'ecb', target: 'EUR', rates: Object.fromEntries(Object.entries({ USD: 1.1, CAD: 1.5, JPY: 160, CNY: 7.9 }).map(([c, rate]) => [c, { rate, asOf: '2026-09-22' }])), fetchedAt: Date.now(), stale: false } };

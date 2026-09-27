@@ -9,12 +9,16 @@ const { spawn } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
 
 const { shellBrowser, platformFlags } = require("./browser.cjs");
+const { i18nScript } = require("./i18n.cjs");
 const browser = shellBrowser();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("real-time off-screen deferral: lazy-regression", { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests", timeout: 30000 }, async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-lazy-"));
-  const proc = spawn(browser, ["--headless=new", "--disable-gpu", ...platformFlags, "--disable-extensions", "--no-first-run", "--window-size=800,600", "--remote-debugging-port=0", `--user-data-dir=${profile}`, pathToFileURL(path.join(__dirname, "fixtures/lazy-regression.html")).href], { stdio: "ignore" });
+  const fixture = path.join(__dirname, "fixtures/lazy-regression.html");
+  const localized = path.join(profile, "lazy.html");
+  fs.writeFileSync(localized, fs.readFileSync(fixture, "utf8").replace('<meta charset="utf-8">', `<meta charset="utf-8"><base href="${pathToFileURL(fixture).href}">${i18nScript()}`));
+  const proc = spawn(browser, ["--headless=new", "--disable-gpu", ...platformFlags, "--disable-extensions", "--no-first-run", "--window-size=800,600", "--remote-debugging-port=0", `--user-data-dir=${profile}`, pathToFileURL(localized).href], { stdio: "ignore" });
   let socket;
   try {
     const portFile = path.join(profile, "DevToolsActivePort");

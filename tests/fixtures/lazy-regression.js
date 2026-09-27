@@ -3,7 +3,7 @@ const table = { provider: "ecb", target: "CNY", rates: { USD: { rate: 0.1, asOf:
 const errors = [];
 window.addEventListener("error", (e) => errors.push(e.message));
 window.addEventListener("unhandledrejection", (e) => errors.push(String(e.reason)));
-globalThis.chrome = {
+globalThis.chrome = { i18n: window.PL_I18N,
   runtime: {
     sendMessage: async (message) => message.type === "getState" ? { ok: true, settings: { ...PriceLens.DEFAULTS } } : { ok: true, table: structuredClone(table) },
     onMessage: { addListener() {} },

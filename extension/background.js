@@ -1,6 +1,6 @@
 importScripts("shared.js", "jev.js");
 
-const { CURRENCIES, ECB_CURRENCIES, settingsFrom, isSensitivePath } = PriceLens;
+const { CURRENCIES, ECB_CURRENCIES, settingsFrom, isSensitivePath, t } = PriceLens;
 const localReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
 const inFlight = new Map();
 const failures = new Map();
@@ -21,23 +21,23 @@ async function inferJev(message, sender) {
   await saveQueue;
   const settings = await getSettings();
   let url;
-  try { url = new URL(sender.url); } catch { throw new Error("Jev 仅处理普通网页候选。"); }
-  if (!settings.enabled || !settings.jevEnabled || settings.excludedHosts.includes(url.hostname)) throw new Error("Jev 辅助识别未开启或当前网站已暂停。");
-  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname)) throw new Error("此页面不发送 AI 请求。");
-  if (!await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] })) throw new Error("尚未授权访问 Jev 服务。");
+  try { url = new URL(sender.url); } catch { throw new Error(t("errJevPageOnly")); }
+  if (!settings.enabled || !settings.jevEnabled || settings.excludedHosts.includes(url.hostname)) throw new Error(t("errJevOff"));
+  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname)) throw new Error(t("errAiSensitive"));
+  if (!await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] })) throw new Error(t("errJevPermission"));
   const { jevKey } = await chrome.storage.local.get("jevKey");
-  if (!jevKey) throw new Error("请先配置 Jev API Key。");
+  if (!jevKey) throw new Error(t("errJevKeyMissing"));
   // No await between this check and infer's fetch: a revoked task must never start an upload.
-  if (revision !== settingsRevision) throw new Error("识别设置已改变，本次请求已取消。");
+  if (revision !== settingsRevision) throw new Error(t("errJevCancelled"));
   const decisions = await PriceLensJev.infer(message.candidates, jevKey);
   const current = await getSettings();
-  if (revision !== settingsRevision || !current.enabled || !current.jevEnabled || current.excludedHosts.includes(url.hostname)) throw new Error("识别设置已改变，本次结果已丢弃。");
+  if (revision !== settingsRevision || !current.enabled || !current.jevEnabled || current.excludedHosts.includes(url.hostname)) throw new Error(t("errJevDiscarded"));
   return { decisions };
 }
 
 // Rows -> { CODE: { rate, asOf, source } }, keeping only requested, fresh, positive quotes.
 function readRates(rows, target, source, wanted) {
-  if (!Array.isArray(rows) || rows.length > 1000) throw new Error("汇率接口返回了无效数据。");
+  if (!Array.isArray(rows) || rows.length > 1000) throw new Error(t("errRatesInvalid"));
   const rates = {};
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
@@ -57,14 +57,14 @@ async function request(url, headers = {}) {
   try {
     response = await fetch(url, { headers, signal: AbortSignal.timeout(12_000), credentials: "omit", redirect: "error", cache: "no-store" });
   } catch {
-    throw new Error("汇率请求失败或超时，请检查网络后重试。");
+    throw new Error(t("errRatesNetwork"));
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error("Wise Token 无效或无权访问汇率接口，请检查权限。");
-    if (response.status === 429) throw new Error("汇率服务限流，请稍后重试。");
-    throw new Error(`汇率服务暂不可用（HTTP ${response.status}）。`);
+    if (response.status === 401 || response.status === 403) throw new Error(t("errWiseAuth"));
+    if (response.status === 429) throw new Error(t("errRatesLimited"));
+    throw new Error(t("errRatesHttp", response.status));
   }
-  try { return await response.json(); } catch { throw new Error("汇率接口返回了无效 JSON。"); }
+  try { return await response.json(); } catch { throw new Error(t("errRatesJson")); }
 }
 
 async function download(provider, target, token) {
@@ -72,8 +72,8 @@ async function download(provider, target, token) {
   const rates = {};
   let error;
   if (provider === "wise") {
-    if (!token) throw new Error("请先在插件中配置自己的 Wise API Token。");
-    if (!await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error("请在设置中授权访问 Wise 服务。");
+    if (!token) throw new Error(t("errWiseTokenMissing"));
+    if (!await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error(t("errWisePermission"));
     Object.assign(rates, readRates(await request(`https://api.wise.com/2026Q3/rates?source=${target}`, { Authorization: `Bearer ${token}` }), target, "wise", others));
   } else {
     // Prefer one traceable official source (ECB); fill only its gaps with Frankfurter's multi-central-bank blend.
@@ -85,7 +85,7 @@ async function download(provider, target, token) {
       try { Object.assign(rates, readRates(await request(`https://api.frankfurter.dev/v2/rates?base=${target}&quotes=${missing.join(",")}`), target, "blend", missing)); } catch (e) { error ??= e; }
     }
   }
-  if (!Object.keys(rates).length) throw error || new Error("没有可用汇率，或报价日期已超过 7 天。");
+  if (!Object.keys(rates).length) throw error || new Error(t("errRatesNone"));
   return { provider, target, rates, fetchedAt: Date.now(), stale: false };
 }
 
@@ -109,12 +109,12 @@ async function getRates(force = false) {
   const request = (async () => {
     try {
       const table = await download(provider, target, saved.wiseToken);
-      if (revision !== credentialRevision) throw new Error("设置已更新，请重新获取汇率。");
+      if (revision !== credentialRevision) throw new Error(t("errSettingsChanged"));
       await chrome.storage.local.set({ [key]: table });
       failures.delete(key);
       return table;
     } catch (error) {
-      if (revision !== credentialRevision) throw new Error("设置已更新，请重新获取汇率。");
+      if (revision !== credentialRevision) throw new Error(t("errSettingsChanged"));
       failures.set(key, { at: Date.now(), message: error.message });
       return fallback(error.message);
     } finally {
@@ -132,16 +132,16 @@ async function getRates(force = false) {
 
 async function saveSettings(message) {
   const input = message.settings;
-  if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error("设置无效。");
+  if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error(t("errSettingsInvalid"));
   await localReady;
   const stored = await chrome.storage.local.get(["wiseToken", "jevKey"]);
   const token = message.token === null ? stored.wiseToken || "" : message.token;
   const jevKey = message.jevKey == null ? stored.jevKey || "" : message.jevKey;
-  if (typeof jevKey !== "string" || jevKey.length > 4096 || /[^\x21-\x7e]/.test(jevKey)) throw new Error("Jev Key 格式无效。");
-  if (input.jevEnabled === true && (!jevKey || !await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] }))) throw new Error("开启 Jev 需要 Key 和服务访问授权。");
-  if (typeof token !== "string" || token.length > 4096 || /[^\x21-\x7e]/.test(token)) throw new Error("Token 格式无效，请勿输入空格或换行。");
-  if (input.provider === "wise" && !token) throw new Error("使用 Wise 前请填写 API Token。");
-  if (input.provider === "wise" && !await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error("使用 Wise 前请授权服务访问。");
+  if (typeof jevKey !== "string" || jevKey.length > 4096 || /[^\x21-\x7e]/.test(jevKey)) throw new Error(t("errJevKeyFormat"));
+  if (input.jevEnabled === true && (!jevKey || !await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] }))) throw new Error(t("errJevNeedsKey"));
+  if (typeof token !== "string" || token.length > 4096 || /[^\x21-\x7e]/.test(token)) throw new Error(t("errTokenFormat"));
+  if (input.provider === "wise" && !token) throw new Error(t("errWiseNeedsToken"));
+  if (input.provider === "wise" && !await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error(t("errWiseNeedsPermission"));
   if (token !== (stored.wiseToken || "")) {
     credentialRevision++;
     failures.clear();
@@ -184,7 +184,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case "getRates": return { table: await getRates(trusted && message.force === true) };
       case "inferJev": return inferJev(message, sender);
       case "saveSettings": {
-        if (!trusted) throw new Error("仅插件设置页可修改设置。");
+        if (!trusted) throw new Error(t("errPopupOnly"));
         // Serialize the entire read/modify/write, including credential snapshots.
         const saving = saveQueue.then(() => {
           settingsRevision++;
@@ -194,9 +194,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         saveQueue = saving.catch(() => {});
         return saving;
       }
-      default: throw new Error("未知请求。");
+      default: throw new Error(t("errUnknownRequest"));
     }
   };
-  handle().then((data) => sendResponse({ ok: true, ...data }), (error) => sendResponse({ ok: false, error: error.message || "操作失败。" }));
+  handle().then((data) => sendResponse({ ok: true, ...data }), (error) => sendResponse({ ok: false, error: error.message || t("errGeneric") }));
   return true;
 });

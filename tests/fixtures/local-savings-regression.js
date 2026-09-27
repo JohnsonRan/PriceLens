@@ -4,7 +4,7 @@ const table = { provider: "ecb", target: "CNY", rates: { USD: { rate: 0.1, asOf:
 const listeners = [], messages = [], runtimeErrors = [];
 window.addEventListener("error", (e) => runtimeErrors.push(e.message));
 window.addEventListener("unhandledrejection", (e) => runtimeErrors.push(String(e.reason)));
-globalThis.chrome = {
+globalThis.chrome = { i18n: window.PL_I18N,
   runtime: {
     sendMessage: async (message) => {
       messages.push(message.type);

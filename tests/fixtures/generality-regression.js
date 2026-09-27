@@ -5,7 +5,7 @@ const quote = rate => ({ rate, asOf: new Date().toISOString() });
 const table = { provider: 'ecb', target: 'CNY', fetchedAt: Date.now(), stale: false, rates: { USD: quote(.125), CAD: quote(.25), EUR: quote(.1) } };
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
-window.chrome = { runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings } : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
+window.chrome = { i18n: window.PL_I18N, runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings } : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
 window.addEventListener('load', async () => {
   const result = { completed: false, systemDark: matchMedia('(prefers-color-scheme: dark)').matches, checks: [] };
   const el = id => document.getElementById(id);

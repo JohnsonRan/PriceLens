@@ -21,7 +21,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     res.end('<!doctype html><html lang="en"><title>PriceLens MV3 smoke</title><style>body{font:18px Arial;background:white;color:#222;padding:20px}</style><h1>Local synthetic shop</h1><p>USD 10</p><p>EUR 20</p><x-card></x-card><script>customElements.define("x-card", class extends HTMLElement { connectedCallback() { this.attachShadow({ mode: "open" }).innerHTML = "<p>USD 5</p>"; } });</script></html>');
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  const proc = spawn(browser, ['--headless=new', '--disable-gpu', ...platformFlags, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, 'about:blank'], { stdio: 'ignore' });
+  const proc = spawn(browser, ['--headless=new', '--disable-gpu', ...platformFlags, '--lang=zh-CN', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, 'about:blank'], { stdio: 'ignore' });
   let launchError, socket, command;
   proc.on('error', error => { launchError = error; });
   const pending = new Map();
@@ -75,8 +75,8 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
         }
         const session = workerSessions.get(candidate.targetId);
         // Chromium itself also ships background.js workers; match our manifest, not its filename.
-        const identity = await evaluate(session, `({name:chrome.runtime?.getManifest?.().name,ready:typeof PriceLens!=='undefined'&&Boolean(chrome.storage)})`);
-        if (identity.name === manifest.name && identity.ready) { worker = candidate; workerSession = session; break; }
+        const identity = await evaluate(session, `({home:chrome.runtime?.getManifest?.().homepage_url,ready:typeof PriceLens!=='undefined'&&Boolean(chrome.storage)})`);
+        if (identity.home === manifest.homepage_url && identity.ready) { worker = candidate; workerSession = session; break; }
       }
       if (!worker) await delay(100);
     }

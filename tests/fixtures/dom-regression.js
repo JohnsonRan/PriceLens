@@ -5,7 +5,7 @@ const runtimeErrors = [];
 window.addEventListener("error", (event) => runtimeErrors.push(event.message));
 window.addEventListener("unhandledrejection", (event) => runtimeErrors.push(String(event.reason)));
 let aiRequests = 0;
-globalThis.chrome = {
+globalThis.chrome = { i18n: window.PL_I18N,
   runtime: {
     sendMessage: async ({ type }) => {
       if (type === "getState") return { ok: true, settings: { ...settings } };

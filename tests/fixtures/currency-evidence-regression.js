@@ -2,7 +2,7 @@
 const calls = [], errors = [];
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
-globalThis.chrome = {
+globalThis.chrome = { i18n: window.PL_I18N,
   runtime: {
     sendMessage: async message => {
       calls.push(message.type);
