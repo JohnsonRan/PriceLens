@@ -29,6 +29,14 @@ test("international prices and explicit vs ambiguous currency", () => {
   assert.equal(C.findPrices("USD 10 / EUR 9 / HK$78").length, 3);
 });
 
+test("every supported code has a localized name from Intl", () => {
+  for (const code of Object.keys(C.CURRENCIES)) {
+    for (const locale of ["zh-CN", "en"]) assert.notEqual(C.currencyName(code, locale), code, `${code} ${locale}`);
+  }
+  assert.equal(C.CURRENCIES.TWD, "新台币");
+  assert.equal(C.currencyName("TWD", "en"), "New Taiwan Dollar");
+});
+
 test("range separators do not turn explicit signed amounts or standalone refunds positive", () => {
   for (const text of ["Price range €10 -€20", "€10 - €20", "€10-€20", "€10–€20", "USD 10 -USD 20"]) {
     assert.deepEqual(C.findPrices(text).map((p) => p.amount), [10, 20], text);

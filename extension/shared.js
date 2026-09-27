@@ -1,15 +1,9 @@
 /* Shared by the popup, isolated content script, service worker and Node checks. */
 (() => {
-  const CURRENCIES = Object.freeze({
-    CNY: "人民币", USD: "美元", EUR: "欧元", GBP: "英镑", JPY: "日元",
-    HKD: "港元", TWD: "新台币", SGD: "新加坡元", AUD: "澳元", CAD: "加拿大元",
-    NZD: "新西兰元", CHF: "瑞士法郎", KRW: "韩元", THB: "泰铢", INR: "印度卢比",
-    MYR: "马来西亚林吉特", IDR: "印尼盾", PHP: "菲律宾比索", VND: "越南盾",
-    SEK: "瑞典克朗", NOK: "挪威克朗", DKK: "丹麦克朗", ISK: "冰岛克朗",
-    PLN: "波兰兹罗提", CZK: "捷克克朗", HUF: "匈牙利福林", RON: "罗马尼亚列伊",
-    TRY: "土耳其里拉", BRL: "巴西雷亚尔", MXN: "墨西哥比索", ZAR: "南非兰特",
-    ILS: "以色列新谢克尔", AED: "阿联酋迪拉姆", SAR: "沙特里亚尔", RUB: "俄罗斯卢布",
-  });
+  // Supported codes only; display names come from the browser's CLDR data in any UI language.
+  const CODES = "CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB".split(" ");
+  const currencyName = (code, locale = "zh-CN") => new Intl.DisplayNames([locale], { type: "currency" }).of(code);
+  const CURRENCIES = Object.freeze(Object.fromEntries(CODES.map((code) => [code, currencyName(code)])));
   const ECB_CURRENCIES = "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR ILS INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR".split(" ");
   const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], savingsEnabled: true, jevEnabled: false });
   const SYMBOLS = {
@@ -216,7 +210,7 @@
     return new Intl.NumberFormat("zh-CN", { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { isSensitivePath, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
+  const api = { isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();
