@@ -22,3 +22,46 @@ test('starting prices cannot enter reference/current subtraction', () => {
   assert.equal(C.pairSavings(pair(['JPY 1000～', 'JPY 800']), 'A_REFERENCE_B_CURRENT'), null);
   assert.equal(C.pairSavings(pair(['JPY 1000', 'JPY 800']), 'A_REFERENCE_B_CURRENT').amount, 200);
 });
+
+test('schema.org sale markup yields exactly one reference/current pair per offer', () => {
+  const keys = (data) => [...C.structuredSavings(data)];
+  const strike = (price, extra = {}) => ({ '@type': 'UnitPriceSpecification', priceType: 'https://schema.org/StrikethroughPrice', price, priceCurrency: 'GBP', ...extra });
+  assert.deepEqual(keys({ '@graph': [{ '@type': 'Product', offers: [{ '@type': 'Offer', price: '10.00', priceCurrency: 'GBP', priceSpecification: strike(15) }] }] }), ['GBP:15>10']);
+  assert.deepEqual(keys({ '@type': 'Offer', priceSpecification: [{ price: 10, priceCurrency: 'GBP' }, strike('15.00')] }), ['GBP:15>10']);
+  assert.deepEqual(keys({ '@type': 'Offer', price: 8, priceCurrency: 'USD', priceSpecification: { priceType: 'ListPrice', price: 9, priceCurrency: 'USD' } }), ['USD:9>8']);
+  assert.deepEqual(keys({ '@type': 'Offer', price: 10, priceCurrency: 'GBP', priceSpecification: [strike(15), { price: 8, priceCurrency: 'GBP', validForMemberTier: { name: 'gold' } }] }), ['GBP:15>10'], 'member tier is ignored');
+  for (const [name, data] of [
+    ['no reference', { '@type': 'Offer', price: 10, priceCurrency: 'GBP' }],
+    ['reference not higher', { '@type': 'Offer', price: 15, priceCurrency: 'GBP', priceSpecification: strike(15) }],
+    ['currency mismatch', { '@type': 'Offer', price: 10, priceCurrency: 'USD', priceSpecification: strike(15) }],
+    ['two different current prices', { '@type': 'Offer', price: 10, priceCurrency: 'GBP', priceSpecification: [strike(15), { price: 9, priceCurrency: 'GBP' }] }],
+    ['unit price is not a current price', { '@type': 'Offer', priceSpecification: [strike(15), { price: 10, priceCurrency: 'GBP', referenceQuantity: { value: 1 } }] }],
+    ['expired sale', { '@type': 'Offer', priceCurrency: 'GBP', priceSpecification: [strike(15), { price: 10, priceCurrency: 'GBP', validThrough: '2000-01-01' }] }],
+    ['aggregate offer range', { '@type': 'AggregateOffer', lowPrice: 10, highPrice: 15, priceCurrency: 'GBP' }],
+    ['non-numeric price', { '@type': 'Offer', price: '10,00', priceCurrency: 'GBP', priceSpecification: strike(15) }],
+    ['unknown currency', { '@type': 'Offer', price: 10, priceCurrency: 'XXX', priceSpecification: { ...strike(15), priceCurrency: 'XXX' } }],
+  ]) assert.deepEqual(keys(data), [], name);
+});
+
+test('local savings: markup first, then exactly one struck vs one unstruck amount', () => {
+  const item = (context, ...entries) => ({ context, currencyHint: '', candidates: entries.map(([original, struck]) => ({ original, group: 'item', struck })) });
+  const pair = item('x', ['GBP 15', false], ['GBP 10', false], ['GBP 2', false]);
+  assert.equal(C.localSavings(pair, new Set(['GBP:15>10'])).source, 'structured');
+  assert.equal(C.localSavings(pair, new Set(['GBP:15>10'])).amount, 5);
+  assert.equal(C.localSavings(pair), null, 'three unstruck amounts need markup');
+  const struck = C.localSavings(item('x', ['USD 80', false], ['USD 100', true]));
+  assert.equal(struck.source, 'strike');
+  assert.equal(struck.amount, 20);
+  assert.equal(struck.currentIndex, 0);
+  for (const [name, input] of [
+    ['no strike', item('x', ['USD 100', false], ['USD 80', false])],
+    ['both struck', item('x', ['USD 100', true], ['USD 80', true])],
+    ['struck lower than current', item('x', ['USD 5', true], ['USD 9', false])],
+    ['currency mismatch', item('x', ['USD 100', true], ['EUR 80', false])],
+    ['member wording', item('Member price', ['USD 100', true], ['USD 80', false])],
+    ['coupon wording', item('クーポン適用', ['USD 100', true], ['USD 80', false])],
+    ['three amounts', item('x', ['USD 100', true], ['USD 80', false], ['USD 5', false])],
+    ['starting price', item('x', ['JPY 1000', true], ['JPY 800～', false])],
+  ]) assert.equal(C.localSavings(input), null, name);
+  assert.equal(C.localSavings(item('x', ['GBP 15', false], ['GBP 10', false]), new Set(['GBP:15>10', 'GBP:15>9'])).source, 'structured', 'unrelated page pairs do not block a match');
+});

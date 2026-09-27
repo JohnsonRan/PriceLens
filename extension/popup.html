@@ -40,6 +40,8 @@
           <label for="source-hint">网页原币种</label>
           <select id="source-hint" name="sourceHint" aria-describedby="recognition-hint"><option value="">自动识别币种</option></select>
           <p id="recognition-hint" class="hint">读取中…</p>
+          <label class="check-row"><input id="savings-enabled" type="checkbox" aria-describedby="savings-hint">显示参考标价差</label>
+          <p id="savings-hint" class="hint">原价减现价。只用页面标注的原价或划线价，在本地计算，不发送网页内容。</p>
           <details id="ai-settings">
             <summary>AI 辅助 <span id="jev-state">· 关闭</span></summary>
             <p id="ai-consent" class="hint consent">开启后，会在未暂停的网站自动向 TypeSafe 发送价格和附近文字（每项最多 360 字符），用于币种识别。可能收费；不发送整页，片段仍可能含私人或敏感信息，请勿在敏感页面启用。<a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明 ↗</a></p>

@@ -77,7 +77,7 @@ test("pending preferences and failed initialization never signal success", async
   assert.equal(failed("refresh").disabled, true);
 });
 
-test("store popup omits the unaccepted reference-difference controls", () => {
+test("store popup omits the unaccepted AI reference-difference controls", () => {
   const html = fs.readFileSync(require.resolve("../extension/popup.html"), "utf8");
   const manifest = require("../extension/manifest.json");
   assert.match(html, /<img class="logo" src="icons\/icon128\.png"/);

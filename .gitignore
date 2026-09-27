@@ -21,6 +21,8 @@ tests/fixtures/*
 !tests/fixtures/currency-context-regression.js
 !tests/fixtures/generality-regression.html
 !tests/fixtures/generality-regression.js
+!tests/fixtures/local-savings-regression.html
+!tests/fixtures/local-savings-regression.js
 !tests/fixtures/jev-cases.json
 !tests/fixtures/jev-currency-context-cases.json
 test-results/

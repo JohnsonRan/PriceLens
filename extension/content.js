@@ -22,6 +22,7 @@
   let settings = C.DEFAULTS;
   let table = null;
   let pageHint = "";
+  let structuredPairs = new Set();
   let timer;
   let scanning = false;
   let revision = 0;
@@ -227,6 +228,15 @@
     }
     const unique = [...new Set(hints.filter((v) => Object.hasOwn(C.CURRENCIES, v)))];
     return unique.length === 1 ? unique[0] : "";
+  }
+
+  function detectStructuredPairs() {
+    const pairs = new Set();
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      if (script.textContent.length > 500_000) continue;
+      try { for (const pair of C.structuredSavings(JSON.parse(script.textContent))) pairs.add(pair); } catch { /* Malformed page JSON is not evidence. */ }
+    }
+    return pairs;
   }
 
   function hintFor(node) {
@@ -495,7 +505,7 @@
     const parent = node.parentElement;
     if (!node.isConnected || !parent || parent.closest(SKIP) || covered(node, seen) || !node.data.trim() || node.data.length > 5000) return;
     const { anchor, prices } = unitFor(node, hintFor(node));
-    if (prices.length) { priceUnits.set(anchor, { node, prices, struck: settings.jevSavingsEnabled ? prices.map((price) => isStruck(anchor, price)) : [] }); unitsSeen.add(anchor); }
+    if (prices.length) { priceUnits.set(anchor, { node, prices, struck: settings.savingsEnabled ? prices.map((price) => isStruck(anchor, price)) : [] }); unitsSeen.add(anchor); }
     if (covered(anchor, seen)) return;
     const visible = isVisible(anchor);
     if (prices.length) visibilityTargets.set(anchor, visible);
@@ -528,7 +538,8 @@
       const stale = price.currency !== settings.target && table.stale;
       if (badge.dataset.stale !== String(stale)) badge.dataset.stale = String(stale);
       if (badge.dataset.pricelensSavings !== String(Boolean(price.savings))) badge.dataset.pricelensSavings = String(Boolean(price.savings));
-      const label = `${price.savings ? " 参考标价差约 " : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? " 起" : ""}${ai || price.savings ? " · AI" : ""}${stale ? " · 缓存" : ""}`;
+      const viaAI = ai || price.savings?.source === "ai";
+      const label = `${price.savings ? " 参考标价差约 " : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? " 起" : ""}${viaAI ? " · AI" : ""}${stale ? " · 缓存" : ""}`;
       if (badge.textContent !== label) badge.textContent = label;
       const rate = table.rates[price.currency];
       const source = table.provider === "wise" ? "Wise 中间价" : "ECB / Frankfurter 日更参考汇率（非实时）";
@@ -536,7 +547,7 @@
       const quote = price.currency === settings.target ? "本币差额，不涉及换汇。" : `${source}\n报价时间：${rate.asOf}\n获取时间：${new Date(table.fetchedAt).toLocaleString("zh-CN")}`;
       let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${stale ? `更新失败，使用旧缓存：${table.warning}\n` : ""}仅供参考，不含手续费；实际结算以商家/银行为准。`;
       if (price.minimum) title += "\n这是起价下限，不是固定售价或最终结算金额。";
-      if (price.savings) title += "\n仅为页面所列参考价与现价的数字差，由本地计算；价格关系由 Jev 判断，可能有误。税费口径与购买资格未核实，不代表实际可省金额或最终结算优惠；参考价不等于历史成交价。";
+      if (price.savings) title += `\n仅为页面所列参考价与现价的数字差，由本地计算；价格关系${{ structured: "来自页面结构化数据的原价标记", strike: "按页面划线格式判断，可能有误", ai: "由 Jev 判断，可能有误" }[price.savings.source]}。税费口径与购买资格未核实，不代表实际可省金额或最终结算优惠；参考价不等于历史成交价。`;
       else if (ai) title += `\n币种 ${price.currency} 由 Jev 辅助推断，可能有误，请核对原页面。`;
       if (badge.title !== title) {
         badge.title = title;
@@ -660,8 +671,9 @@
   }
 
   function scanSavings(roots) {
-    for (const scope of savingsRecords.keys()) if (!scope.isConnected || !settings.jevEnabled || !settings.jevSavingsEnabled) removeRecord(scope, savingsRecords);
-    if (!settings.jevEnabled || !settings.jevSavingsEnabled || /(?:checkout|payment|account|login|orders?|cart)(?:[/.?_-]|$)/i.test(location.pathname)) return;
+    const active = settings.savingsEnabled && !/(?:checkout|payment|account|login|orders?|cart)(?:[/.?_-]|$)/i.test(location.pathname);
+    for (const scope of savingsRecords.keys()) if (!scope.isConnected || !active) removeRecord(scope, savingsRecords);
+    if (!active) return;
     const scopes = new Set();
     for (const scope of savingsRecords.keys()) if (roots.some((root) => scope.contains(root) || root.contains(scope))) scopes.add(scope);
     for (const anchor of priceUnits.keys()) {
@@ -674,17 +686,20 @@
     for (const scope of groups) {
       const prepared = savingsCandidate(scope);
       if (!prepared) { removeRecord(scope, savingsRecords); continue; }
-      const key = `savings:${JSON.stringify(prepared.candidate)}`;
-      if (!aiMemo.has(key) && aiMemo.size < 32) aiMemo.set(key, { type: "savings", candidate: prepared.candidate, pending: true, sent: false, choice: null, anchors: new Set() });
-      const entry = aiMemo.get(key);
-      if (!entry) { removeRecord(scope, savingsRecords); continue; }
-      if (entry.pending) {
-        // Keep the node for reuse, but never display a stale difference while a changed pair is unverified.
-        for (const badge of savingsRecords.get(scope)?.badges || []) badge.remove();
-        entry.anchors.add(scope);
-        continue;
+      let savings = C.localSavings(prepared.candidate, structuredPairs);
+      if (!savings && settings.jevEnabled && settings.jevSavingsEnabled) {
+        const key = `savings:${JSON.stringify(prepared.candidate)}`;
+        if (!aiMemo.has(key) && aiMemo.size < 32) aiMemo.set(key, { type: "savings", candidate: prepared.candidate, pending: true, sent: false, choice: null, anchors: new Set() });
+        const entry = aiMemo.get(key);
+        if (entry?.pending) {
+          // Keep the node for reuse, but never display a stale difference while a changed pair is unverified.
+          for (const badge of savingsRecords.get(scope)?.badges || []) badge.remove();
+          entry.anchors.add(scope);
+          continue;
+        }
+        const pair = entry && C.pairSavings(prepared.candidate, entry.choice);
+        savings = pair && { ...pair, source: "ai" };
       }
-      const savings = C.pairSavings(prepared.candidate, entry.choice);
       if (!savings) { removeRecord(scope, savingsRecords); continue; }
       renderPrices(prepared.anchors[savings.currentIndex], [{ ...savings, original: savings.current.original, savings }], savingsRecords, scope);
     }
@@ -727,6 +742,8 @@
       hintDirty = false;
       const hint = detectPageHint();
       if (hint !== pageHint) { pageHint = hint; pending.add(document.body); }
+      const pairs = settings.savingsEnabled ? detectStructuredPairs() : new Set();
+      if ([...pairs].join() !== [...structuredPairs].join()) { structuredPairs = pairs; pending.add(document.body); }
     }
     for (const [anchor, visible] of visibilityTargets) {
       if (!anchor.isConnected) { visibilityTargets.delete(anchor); blockedPlacements.delete(anchor); continue; }
@@ -738,7 +755,7 @@
         visibilityTargets.set(anchor, next);
       }
     }
-    if (settings.jevSavingsEnabled) for (const [anchor, unit] of priceUnits) {
+    if (settings.savingsEnabled) for (const [anchor, unit] of priceUnits) {
       if (anchor.isConnected && [...visibilityRoots].some((root) => root.contains(anchor) || anchor.contains(root)) && unit.struck.some((struck, i) => struck !== isStruck(anchor, unit.prices[i]))) pending.add(anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor);
     }
     for (const [scope, record] of savingsRecords) {
@@ -831,7 +848,7 @@
       if (id !== refreshId) return;
       if (!response.ok) throw new Error(response.error);
       if (JSON.stringify(response.table) === JSON.stringify(table)) {
-        if (settingsChanged) queue(document.body);
+        if (settingsChanged) { hintDirty = true; queue(document.body); }
         return;
       }
       revision++;

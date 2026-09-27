@@ -367,6 +367,18 @@ test("currency rejections are cached without exposing original page text", async
   }
 });
 
+test("local reference-difference toggle defaults on, syncs, and requires a boolean", async () => {
+  assert.equal(C.settingsFrom({}).savingsEnabled, true);
+  assert.equal(C.settingsFrom({ savingsEnabled: false }).savingsEnabled, false);
+  const w = worker();
+  assert.equal((await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, savingsEnabled: "no" }, token: null, jevKey: null })).ok, false);
+  const saved = await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, savingsEnabled: false }, token: null, jevKey: null });
+  assert.equal(saved.ok, true);
+  assert.equal(w.sync.savingsEnabled, false);
+  assert.equal((await w.send({ type: "getState" }, false)).settings.savingsEnabled, false);
+  assert.equal(w.calls.length, 0);
+});
+
 test("legacy savings flags cannot enable the store release on read or save", async () => {
   assert.equal(C.settingsFrom({ jevEnabled: true, jevSavingsEnabled: true }).jevSavingsEnabled, false);
   const w = worker({ jevSavingsEnabled: true }, savingsAI, { granted: true });
@@ -376,6 +388,7 @@ test("legacy savings flags cannot enable the store release on read or save", asy
   assert.equal(saved.settings.jevSavingsEnabled, false);
   assert.equal(w.local.jevSavingsEnabled, false);
   assert.equal(saved.settings.jevEnabled, true, "ordinary currency AI remains available");
+  assert.equal(saved.settings.savingsEnabled, true, "local reference differences need no AI opt-in");
   assert.equal((await w.send(savingsMessage(), false)).ok, false);
   assert.equal(w.calls.length, 0);
 });

@@ -121,7 +121,7 @@ async function getRates(force = false) {
 
 async function saveSettings(message) {
   const input = message.settings;
-  if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error("设置无效。");
+  if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error("设置无效。");
   if (input.provider === "ecb" && !ECB_CURRENCIES.includes(input.target)) throw new Error("此币种需使用 Wise。");
   await localReady;
   const stored = await chrome.storage.local.get(["wiseToken", "jevKey", "jevEnabled", "jevSavingsEnabled"]);

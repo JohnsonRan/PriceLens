@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>PriceLens local savings regression</title>
+<link rel="stylesheet" href="../../extension/content.css">
+<style>body{background:#fff;color:#222}.card{margin:10px;padding:8px;border:1px solid #ddd}.old{text-decoration:line-through}</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"Trinket","offers":{"@type":"Offer","price":"10.00","priceCurrency":"GBP","priceSpecification":{"@type":"UnitPriceSpecification","priceType":"https://schema.org/StrikethroughPrice","price":15,"priceCurrency":"GBP"}}}]}</script>
+<script type="application/ld+json">{"@type":"Offer","price":40,"priceCurrency":"USD","priceSpecification":[{"@type":"UnitPriceSpecification","priceType":"StrikethroughPrice","price":50,"priceCurrency":"USD"},{"@type":"UnitPriceSpecification","price":30,"priceCurrency":"USD","validForMemberTier":{"name":"gold"}}]}</script>
+</head><body>
+<section id="structured" class="card"><h3>Trinket</h3><p>Was: GBP 15.00</p><p>Now: GBP 10.00</p></section>
+<section id="structured-extra" class="card"><h3>Lamp</h3><p>List USD 50</p><p>Sale USD 40</p><p>Gold members USD 30</p></section>
+<section id="strike" class="card"><h3>Desk lamp</h3><p><s>USD 100</s></p><p><span id="strike-current">USD 80</span></p></section>
+<section id="css-strike" class="card"><h3>Chair</h3><p><span class="old">EUR 60</span> <b>EUR 45</b></p></section>
+<section id="member" class="card"><h3>Speaker</h3><p><s>USD 40</s> Member price USD 30</p></section>
+<section id="three" class="card"><h3>Keyboard</h3><p><s>USD 120</s> USD 90 Shipping: USD 5</p></section>
+<section id="plain" class="card"><h3>Mouse</h3><p>USD 60</p><p>USD 50</p></section>
+<section id="cheaper-strike" class="card"><h3>Cable</h3><p><s>USD 5</s> USD 9</p></section>
+<div id="adjacent"><section class="card"><h3>Product A</h3><p><s>USD 160</s></p></section><section class="card"><h3>Product B</h3><p>USD 130</p></section></div>
+<section id="late" class="card"><h3>Late markup</h3><p>Was GBP 30</p><p>Now GBP 25</p></section>
+<pre id="dom-results">pending</pre>
+<script src="../../extension/shared.js"></script><script src="local-savings-regression.js"></script><script src="../../extension/content.js"></script>
+</body></html>

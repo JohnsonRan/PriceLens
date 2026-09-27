@@ -42,7 +42,8 @@ window.addEventListener('load', async () => {
     check('AI consent has visible prior recipient/data/cost disclosures', ['jev-enabled'].every((id) => { const input = el(id), hint = el(input.getAttribute('aria-describedby')); return hint?.checkVisibility() && Boolean(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING); }) && /TypeSafe/.test(el('ai-consent').textContent) && el('ai-consent').textContent.includes('可能收费') && el('ai-consent').textContent.includes('360 字符'));
     check('diagnostic detail still requires its own disclosure', !el('jev-status').checkVisibility() && !el('status-detail').checkVisibility());
     check('stored credentials never prefill the key field', el('jev-key').value === '' && el('jev-key').type === 'password');
-    check('store release has no reference-difference entry', !el('jev-savings-enabled') && !el('savings-status'));
+    check('store release has no AI reference-difference entry', !el('jev-savings-enabled') && !el('savings-status'));
+    check('local reference difference is on by default and explained', el('savings-enabled').checked && el('savings-enabled').checkVisibility() && /本地计算/.test(el('savings-hint').textContent));
     el('jev-enabled').click();
     check('unsaved opt-out is not persisted', saved.jevEnabled && !el('save').disabled && el('refresh').disabled);
     check('unsaved preferences use pending rather than success feedback', el('notice').dataset.tone === 'pending');
@@ -70,6 +71,10 @@ window.addEventListener('load', async () => {
     check('Wise denial cannot persist provider or token', messages.filter((m) => m.type === 'saveSettings').length === beforeWise && saved.provider === 'ecb' && JSON.stringify(permissions.at(-1).origins) === JSON.stringify(['https://api.wise.com/*']));
     granted = true; el('jev-enabled').click(); el('save').click(); await wait();
     check('Wise and AI request combined origins in a single permission prompt', saved.provider === 'wise' && saved.jevEnabled && JSON.stringify(permissions.at(-1).origins) === JSON.stringify(['https://api.typesafe.ai/*', 'https://api.wise.com/*']));
+    el('savings-enabled').click(); el('save').click(); await wait();
+    check('local reference difference saves independently of AI', saved.savingsEnabled === false && saved.jevEnabled && saved.provider === 'wise');
+    el('savings-enabled').click(); el('save').click(); await wait();
+    check('local reference difference can be re-enabled', saved.savingsEnabled === true);
     check('expanded settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     check('no runtime errors', errors.length === 0);
     report.completed = true;

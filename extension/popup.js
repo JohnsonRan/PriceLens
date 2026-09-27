@@ -96,7 +96,7 @@ $("settings-form").addEventListener("submit", async (event) => {
     }
     state = await request({
       type: "saveSettings",
-      settings: { enabled: $("enabled").checked, target: $("target").value, provider: $("provider").value, sourceHint: $("source-hint").value, excludedHosts: [...excluded], jevEnabled: $("jev-enabled").checked },
+      settings: { enabled: $("enabled").checked, savingsEnabled: $("savings-enabled").checked, target: $("target").value, provider: $("provider").value, sourceHint: $("source-hint").value, excludedHosts: [...excluded], jevEnabled: $("jev-enabled").checked },
       token: $("clear-token").checked ? "" : $("token").value.trim() || null,
       jevKey: $("clear-jev").checked ? "" : $("jev-key").value.trim() || null,
     });
@@ -137,6 +137,7 @@ $("refresh").addEventListener("click", async () => {
     $("target").value = state.settings.target;
     $("provider").value = state.settings.provider;
     $("source-hint").value = state.settings.sourceHint;
+    $("savings-enabled").checked = state.settings.savingsEnabled;
     $("pause-site").disabled = !hostname;
     $("pause-site").checked = state.settings.excludedHosts.includes(hostname);
     $("site-name").textContent = hostname || "浏览器内置页不可换算";

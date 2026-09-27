@@ -11,7 +11,7 @@
     ILS: "以色列新谢克尔", AED: "阿联酋迪拉姆", SAR: "沙特里亚尔", RUB: "俄罗斯卢布",
   });
   const ECB_CURRENCIES = "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR ILS INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR".split(" ");
-  const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], jevEnabled: false, jevSavingsEnabled: false });
+  const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], savingsEnabled: true, jevEnabled: false, jevSavingsEnabled: false });
   const SYMBOLS = {
     "US$": "USD", "CA$": "CAD", "C$": "CAD", "AU$": "AUD", "A$": "AUD",
     "NZ$": "NZD", "HK$": "HKD", "SG$": "SGD", "S$": "SGD", "NT$": "TWD",
@@ -109,6 +109,7 @@
   function settingsFrom(value = {}) {
     return {
       enabled: value.enabled !== false,
+      savingsEnabled: value.savingsEnabled !== false,
       jevEnabled: value.jevEnabled === true,
       // Store v0.1: the unaccepted reference-difference experiment cannot be enabled by old settings.
       jevSavingsEnabled: false,
@@ -143,11 +144,61 @@
     return { reference, current, amount: (high - low) / 100, currency: current.currency, referenceIndex, currentIndex };
   }
 
+  const REFERENCE_TYPE = /(?:^|[/#:])(?:StrikethroughPrice|ListPrice|MSRP|SRP)$/;
+  const schemaAmount = (value) => {
+    const text = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+    return /^\d+(?:\.\d+)?$/.test(text) && Number(text) > 0 ? Number(text) : null;
+  };
+
+  // Explicit schema.org sale markup (Google merchant listings): Offer.price or an untyped
+  // UnitPriceSpecification is current; priceType StrikethroughPrice/ListPrice marks the reference.
+  function structuredSavings(root) {
+    const pairs = new Set(), stack = [root];
+    for (let budget = 5000; stack.length && budget > 0; budget--) {
+      const node = stack.pop();
+      if (Array.isArray(node)) { stack.push(...node); continue; }
+      if (!node || typeof node !== "object") continue;
+      for (const value of Object.values(node)) if (value && typeof value === "object") stack.push(value);
+      if (![].concat(node["@type"]).includes("Offer")) continue;
+      const now = Date.now();
+      const specs = [].concat(node.priceSpecification ?? []).filter((spec) => spec && typeof spec === "object" && !spec.validForMemberTier && !spec.referenceQuantity &&
+        !(Date.parse(spec.validThrough) < now) && !(Date.parse(spec.validFrom) > now));
+      const values = (list) => new Set(list.map((spec) => ({ amount: schemaAmount(spec.price), currency: spec.priceCurrency ?? node.priceCurrency }))
+        .filter((price) => price.amount && Object.hasOwn(CURRENCIES, price.currency)).map((price) => `${price.currency}:${price.amount}`));
+      const current = values([...specs.filter((spec) => spec.priceType == null), ...(node.price == null ? [] : [node])]);
+      const reference = values(specs.filter((spec) => REFERENCE_TYPE.test(String(spec.priceType ?? ""))));
+      if (current.size !== 1 || reference.size !== 1) continue;
+      const [[currency, low]] = [...current].map((id) => id.split(":")), [[referenceCurrency, high]] = [...reference].map((id) => id.split(":"));
+      if (currency === referenceCurrency && Number(high) > Number(low)) pairs.add(`${currency}:${Number(high)}>${Number(low)}`);
+    }
+    return pairs;
+  }
+
+  // ponytail: keyword list, not language understanding; unlisted conditions fall through to strike evidence.
+  const CONDITIONAL = /member|subscri|coupon|voucher|promo ?code|会员|會員|会員|订阅|訂閱|定期|优惠券|優惠券|クーポン|ポイント|积分/i;
+
+  // Deterministic reference/current pairing: page markup first, then one struck vs one unstruck amount.
+  function localSavings(input, structured = new Set()) {
+    const n = input?.candidates?.length || 0;
+    const letter = (i) => String.fromCharCode(65 + i);
+    const found = [];
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+      const pair = a !== b && pairSavings(input, `${letter(a)}_REFERENCE_${letter(b)}_CURRENT`);
+      if (pair && structured.has(`${pair.currency}:${pair.reference.amount}>${pair.current.amount}`)) found.push(pair);
+    }
+    if (found.length === 1) return { ...found[0], source: "structured" };
+    if (found.length || n !== 2 || CONDITIONAL.test(input.context || "")) return null;
+    const struck = input.candidates.findIndex((candidate) => candidate.struck === true);
+    if (struck < 0 || input.candidates[1 - struck].struck === true) return null;
+    const pair = pairSavings(input, `${letter(struck)}_REFERENCE_${letter(1 - struck)}_CURRENT`);
+    return pair && { ...pair, source: "strike" };
+  }
+
   function formatMoney(amount, currency) {
     return new Intl.NumberFormat("zh-CN", { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings };
+  const api = { CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();
