@@ -36,7 +36,9 @@ for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-
       fs.writeFileSync(file, html);
     }
     const run = spawnSync(browser, [
-      "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-background-networking", ...(fixture === "popup-regression" ? ["--window-size=360,600"] : []),
+      "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-background-networking",
+      // Tall viewport: fixtures assert whole-page placement; lazy.test.cjs covers off-screen deferral itself.
+      fixture === "popup-regression" ? "--window-size=360,600" : "--window-size=800,8000",
       `--blink-settings=preferredColorScheme=${systemDark ? 0 : 1}`,
       "--disable-component-update", "--disable-sync", "--no-first-run", "--no-default-browser-check",
       `--user-data-dir=${profile}`, "--virtual-time-budget=10000", "--dump-dom",

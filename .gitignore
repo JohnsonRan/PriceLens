@@ -10,6 +10,7 @@ tests/*
 !tests/mv3.test.cjs
 !tests/popup.test.cjs
 !tests/price-bounds.test.cjs
+!tests/lazy.test.cjs
 !tests/fixtures/
 tests/fixtures/*
 !tests/fixtures/dom-regression.html
@@ -25,6 +26,8 @@ tests/fixtures/*
 !tests/fixtures/local-savings-regression.js
 !tests/fixtures/jsonld-currency-regression.html
 !tests/fixtures/jsonld-currency-regression.js
+!tests/fixtures/lazy-regression.html
+!tests/fixtures/lazy-regression.js
 !tests/fixtures/jev-cases.json
 !tests/fixtures/jev-currency-context-cases.json
 test-results/

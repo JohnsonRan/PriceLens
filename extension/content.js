@@ -280,8 +280,26 @@
     themeRoots.clear();
     visibilityTargets.clear();
     blockedPlacements.clear();
+    lazy.disconnect();
+    deferred.clear();
     clearTimeout(timer);
     timer = null;
+  }
+
+  // Each placement is measured after insertion, which forces a layout; only work near the viewport and
+  // let the rest wait until the user scrolls toward it.
+  const deferred = new Set();
+  const lazy = new IntersectionObserver((entries) => {
+    for (const entry of entries) if (entry.isIntersecting) { lazy.unobserve(entry.target); deferred.delete(entry.target); queue(entry.target); }
+  }, { rootMargin: "100% 0px" });
+
+  function later(anchor) {
+    // ponytail: one viewport of margin above and below; widen it if fast scrolling shows late badges.
+    const rect = sourceRect(anchor);
+    if (rect.bottom >= -innerHeight && rect.top <= innerHeight * 2) return false;
+    const target = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    if (!deferred.has(target)) { deferred.add(target); lazy.observe(target); }
+    return true;
   }
 
   function covered(node, seen) {
@@ -461,12 +479,18 @@
       const parent = badge.parentElement;
       // A badge must not become another flex/grid item and squeeze prices or neighboring controls.
       if (/flex|grid/.test(getComputedStyle(parent).display) || parent.closest('a[href],button,summary,[role="button"],[role="link"]')) return false;
-      const neighborhood = flow?.scope.parentElement?.parentElement;
-      if (neighborhood && neighborhood !== document.body && neighborhood !== document.documentElement) for (const other of neighborhood.querySelectorAll(`[${MARK}]`)) {
+      // Lifting one price's badge must not reverse it with another price's annotation. A reversal needs another
+      // badge either between this anchor and badge, or in a badge run right after one of this badge's ancestors
+      // (where a lifted badge is inserted), so only those few nodes are compared, not every badge nearby.
+      const reversed = (other) => {
         const source = badgeAnchors.get(other);
-        if (other === badge || !source || source === anchor) continue;
-        // Lifting one price's badge must not reverse it with a nearby price's annotation.
-        if (Boolean(source.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING) !== Boolean(other.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+        return other !== badge && source && source !== anchor && Boolean(source.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING) !== Boolean(other.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING);
+      };
+      const between = document.createTreeWalker(parent, NodeFilter.SHOW_ELEMENT);
+      between.currentNode = anchor;
+      if (parent.contains(anchor)) for (let node = between.nextNode(); node && node !== badge; node = between.nextNode()) if (node.hasAttribute(MARK) && reversed(node)) return false;
+      for (let el = badge; el && el !== document.body; el = el.parentElement) {
+        for (let next = el.nextElementSibling; next?.hasAttribute(MARK); next = next.nextElementSibling) if (reversed(next)) return false;
       }
       const rect = badge.getBoundingClientRect(), bounds = parent.getBoundingClientRect();
       return rect.left >= Math.max(0, bounds.left) - 1 && rect.right <= Math.min(document.documentElement.clientWidth, bounds.right) + 1 && fits(badge) && Math.abs(after.height - before.height) <= 1 && Math.abs(after.width - before.width) <= scrollbarDelta + 1 && preservesFlow(flow, badge, scrollbarDelta);
@@ -511,6 +535,7 @@
     if (prices.length) visibilityTargets.set(anchor, visible);
     if (!visible) return;
     seen.add(anchor);
+    if (!records.has(anchor) && later(anchor)) return;
     renderPrices(anchor, prices);
   }
 
@@ -613,17 +638,32 @@
     return new Set(links.map((link) => link.getAttribute("href"))).size > 1;
   }
 
-  function savingsScope(anchor) {
+  // Distinct amounts contained by each ancestor of a price unit, built once per scan (linear in units × depth).
+  function amountIndex() {
+    const index = new Map();
+    for (const [unit, { prices }] of priceUnits) {
+      for (let el = unit.nodeType === Node.ELEMENT_NODE ? unit : unit.parentElement; el && el !== document.body; el = el.parentElement) {
+        if (!index.has(el)) index.set(el, new Set());
+        for (const price of prices) index.get(el).add(`${price.currency}:${price.amount}`);
+      }
+    }
+    return index;
+  }
+
+  let headed = new WeakMap(); // Per scan: a product list parent has thousands of children; check them once, not per price.
+  const hasHeadingChild = (el) => {
+    if (!headed.has(el)) headed.set(el, [...el.children].some((child) => child.matches(HEADING)));
+    return headed.get(el);
+  };
+
+  function savingsScope(anchor, index) {
     let el = anchor.parentElement;
     for (let depth = 0; el && !el.matches("body,html,main") && depth < 4; depth++, el = el.parentElement) {
       if (el.closest(`${SKIP},form,[role='form']`) || crossesProducts(el, anchor)) return null;
-      const amounts = new Set();
-      // ponytail: local-ancestor scans are quadratic in page price units; index by container if profiling warrants it.
-      for (const [unit, { prices }] of priceUnits) if (el.contains(unit)) for (const price of prices) amounts.add(`${price.currency}:${price.amount}`);
-      if (amounts.size >= 2) {
+      if (index.get(el)?.size >= 2) {
         // Include a containing card's heading/conditions, but do not expand into a product list.
         const parent = el.parentElement;
-        if (parent && !parent.matches("body,html,main") && (parent.matches(CARD) || [...parent.children].some((child) => child.matches(HEADING))) && !crossesProducts(parent, anchor)) return parent;
+        if (parent && !parent.matches("body,html,main") && (parent.matches(CARD) || hasHeadingChild(parent)) && !crossesProducts(parent, anchor)) return parent;
         return el;
       }
       if (el.matches(CARD)) return null;
@@ -675,15 +715,18 @@
     for (const scope of savingsRecords.keys()) if (!scope.isConnected || !active) removeRecord(scope, savingsRecords);
     if (!active) return;
     const scopes = new Set();
+    let index;
+    headed = new WeakMap();
     for (const scope of savingsRecords.keys()) if (roots.some((root) => scope.contains(root) || root.contains(scope))) scopes.add(scope);
     for (const anchor of priceUnits.keys()) {
       if (!roots.some((root) => root.contains(anchor) || anchor.contains(root))) continue;
-      const scope = savingsScope(anchor);
+      const scope = savingsScope(anchor, index ??= amountIndex());
       if (scope) scopes.add(scope);
     }
     const groups = [...scopes].filter((scope) => ![...scopes].some((outer) => outer !== scope && outer.contains(scope)));
     for (const scope of scopes) if (!groups.includes(scope)) removeRecord(scope, savingsRecords);
     for (const scope of groups) {
+      if (!savingsRecords.has(scope) && later(scope)) continue;
       const prepared = savingsCandidate(scope);
       if (!prepared) { removeRecord(scope, savingsRecords); continue; }
       let savings = C.localSavings(prepared.candidate, structuredPairs);
