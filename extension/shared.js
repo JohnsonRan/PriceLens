@@ -1,7 +1,10 @@
 /* Shared by the popup, isolated content script, service worker and Node checks. */
 (() => {
   // Supported codes only; display names come from the browser's CLDR data in any UI language.
-  const CODES = "CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB".split(" ");
+  // Deliberately excluded: codes that are also common words (ALL, TOP, CUP, MAD, PEN, COP, GEL, CRC, MOP, ...)
+  // and 3-decimal currencies (KWD, BHD, OMR, JOD, TND), whose "12.500" parseAmount would read as thousands.
+  const CODES = ("CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB " +
+    "ARS CLP EGP PKR NGN KZT UAH QAR BDT KES LKR").split(" ");
   const currencyName = (code, locale = "zh-CN") => new Intl.DisplayNames([locale], { type: "currency" }).of(code);
   const CURRENCIES = Object.freeze(Object.fromEntries(CODES.map((code) => [code, currencyName(code)])));
   const ECB_CURRENCIES = "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR ILS INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR".split(" ");
@@ -13,7 +16,7 @@
     "₹": "INR", "₩": "KRW", "฿": "THB", "₫": "VND", "₱": "PHP",
     "₺": "TRY", "₽": "RUB", "zł": "PLN", "元": "CNY", "円": "JPY",
   };
-  const AMBIGUOUS = { "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN"], "¥": ["CNY", "JPY"], "￥": ["CNY", "JPY"] };
+  const AMBIGUOUS = { "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN", "ARS", "CLP"], "¥": ["CNY", "JPY"], "￥": ["CNY", "JPY"] };
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const tokens = [...Object.keys(CURRENCIES), ...Object.keys(SYMBOLS), ...Object.keys(AMBIGUOUS)].sort((a, b) => b.length - a.length).map(escape).join("|");
   const space = "[ \\t\\u00a0\\u202f]*";

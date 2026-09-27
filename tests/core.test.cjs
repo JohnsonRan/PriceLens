@@ -34,6 +34,9 @@ test("every supported code has a localized name from Intl", () => {
     for (const locale of ["zh-CN", "en"]) assert.notEqual(C.currencyName(code, locale), code, `${code} ${locale}`);
   }
   assert.equal(C.CURRENCIES.TWD, "新台币");
+  for (const text of ["TOP 10", "ALL 50%", "CUP 2", "MAD 3", "PEN 5", "COP 28", "KWD 12.500"]) assert.equal(C.findPrices(text).length, 0, `${text}: word-like or 3-decimal codes are not prices`);
+  assert.equal(C.findPrices("ARS 12.999")[0].amount, 12999);
+  assert.equal(C.findPrices("$12.999", "ARS")[0].currency, "ARS", "an explicit ARS page hint resolves $");
   assert.equal(C.currencyName("TWD", "en"), "New Taiwan Dollar");
 });
 
