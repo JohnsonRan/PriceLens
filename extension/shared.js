@@ -27,6 +27,10 @@
   const cjk = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}]";
   const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_])|(?=${cjk}))`, "gu");
 
+  // Checkout, payment, account, login, order and cart paths: no AI upload and no reference-difference labels.
+  const SENSITIVE_PATH = /(?:checkout|payment|account|login|orders?|cart)(?:[/.?_-]|$)/i;
+  const isSensitivePath = (pathname) => SENSITIVE_PATH.test(pathname);
+
   function currencyFor(token, hint) {
     return CURRENCIES[token] ? token : SYMBOLS[token] || (AMBIGUOUS[token]?.includes(hint) ? hint : null);
   }
@@ -214,7 +218,7 @@
     return new Intl.NumberFormat("zh-CN", { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
+  const api = { isSensitivePath, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

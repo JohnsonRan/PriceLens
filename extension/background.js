@@ -1,6 +1,6 @@
 importScripts("shared.js", "jev.js");
 
-const { CURRENCIES, ECB_CURRENCIES, settingsFrom } = PriceLens;
+const { CURRENCIES, ECB_CURRENCIES, settingsFrom, isSensitivePath } = PriceLens;
 const localReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
 const inFlight = new Map();
 const failures = new Map();
@@ -23,7 +23,7 @@ async function inferJev(message, sender) {
   let url;
   try { url = new URL(sender.url); } catch { throw new Error("Jev 仅处理普通网页候选。"); }
   if (!settings.enabled || !settings.jevEnabled || settings.excludedHosts.includes(url.hostname)) throw new Error("Jev 辅助识别未开启或当前网站已暂停。");
-  if (!/^https?:$/.test(url.protocol) || /(?:checkout|payment|account|login|orders?|cart)(?:[/.?_-]|$)/i.test(url.pathname)) throw new Error("此页面不发送 AI 请求。");
+  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname)) throw new Error("此页面不发送 AI 请求。");
   if (!await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] })) throw new Error("尚未授权访问 Jev 服务。");
   const { jevKey } = await chrome.storage.local.get("jevKey");
   if (!jevKey) throw new Error("请先配置 Jev API Key。");

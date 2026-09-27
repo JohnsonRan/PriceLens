@@ -43,6 +43,11 @@ test('schema.org sale markup yields exactly one reference/current pair per offer
   ]) assert.deepEqual(keys(data), [], name);
 });
 
+test('sensitive paths are shared by AI and reference-difference guards', () => {
+  for (const path of ['/checkout', '/cart/', '/account/settings', '/orders/123', '/order.html', '/login?next=/', '/payment_method']) assert.equal(C.isSensitivePath(path), true, path);
+  for (const path of ['/', '/products/cartridge-ink', '/accounting-books', '/category/shoes']) assert.equal(C.isSensitivePath(path), false, path);
+});
+
 test('JSON-LD offer currencies are collected only from offers and known codes', () => {
   const list = (data) => [...C.structuredCurrencies(data)].sort();
   assert.deepEqual(list({ '@graph': [{ '@type': 'Product', offers: { '@type': 'AggregateOffer', lowPrice: 1, priceCurrency: 'CAD' } }] }), ['CAD']);
