@@ -6,6 +6,10 @@
 
 ## 安装
 
+从 [Chrome 应用商店](https://chromewebstore.google.com/detail/iehjdehpgphmbkcpbpklheoofagjkbap) 安装（Edge 也可以从这里安装），更新会自动推送。
+
+### 手动加载（开发版）
+
 1. 下载本仓库并解压，目录以后不要移动。
 2. 打开 `chrome://extensions` 或 `edge://extensions`，开启「开发者模式」。
 3. 选择「加载已解压的扩展程序」，选中其中的 **`extension`** 文件夹。
