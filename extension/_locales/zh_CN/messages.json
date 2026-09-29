@@ -559,5 +559,11 @@
   },
   "groupDisplay": {
     "message": "显示"
+  },
+  "urlPrivacy": {
+    "message": "https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.zh-CN.md"
+  },
+  "urlHelp": {
+    "message": "https://github.com/JohnsonRan/PriceLens/blob/main/README.zh-CN.md"
   }
 }

@@ -1,57 +1,61 @@
-# 价译 · PriceLens
+# PriceLens · 价译
 
-逛海外网站时，保留原来的价格，在旁边显示你熟悉的货币。
+**English** · [简体中文](README.zh-CN.md)
 
-适用于 Chrome / Edge。普通换算不需要注册，也不需要 API Key。中文浏览器（含繁体）显示中文界面，其他语言显示英文。
+Shopping on a foreign site? PriceLens keeps the original price and shows it in your currency right beside it.
 
-## 安装
+Works in Chrome and Edge. Everyday conversion needs no account and no API key. The interface is in Chinese for Chinese browsers (Simplified or Traditional) and in English for every other language.
 
-从 [Chrome 应用商店](https://chromewebstore.google.com/detail/iehjdehpgphmbkcpbpklheoofagjkbap) 安装（Edge 也可以从这里安装），更新会自动推送。
+## Install
 
-### 手动加载（开发版）
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/iehjdehpgphmbkcpbpklheoofagjkbap); Edge can install from there too. Updates arrive automatically.
 
-1. 下载本仓库并解压，目录以后不要移动。
-2. 打开 `chrome://extensions` 或 `edge://extensions`，开启「开发者模式」。
-3. 选择「加载已解压的扩展程序」，选中其中的 **`extension`** 文件夹。
-4. 固定工具栏图标，打开面板，选择「我的货币」并保存，然后刷新网页。
+### Load the development version
 
-更新后，先在扩展管理页重新加载扩展，再刷新已经打开的网页。
+1. Download this repository and unzip it somewhere permanent.
+2. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
+3. Click **Load unpacked** and pick the **`extension`** folder.
+4. Pin the toolbar icon, open the panel, choose **My currency**, then reload the page you are on.
 
-## 使用
+After pulling an update, reload the extension on the extensions page, then reload open tabs.
 
-打开面板，选择你的货币，保持「自动换算」开启。原价不会被替换。点击或轻触换算结果可查看币种、汇率日期、来源和估算说明；鼠标悬停也保留摘要。键盘用 Tab 进入一个换算结果后，可用方向键切换其他结果，Enter/空格打开详情，Escape 关闭；不会给每个价格增加一个 Tab 停靠。
+## Using it
 
-- 已经是你的货币的价格，不会再换一次。
-- 某个网站不需要换算时，勾选「暂停此网站」并保存。
-- `$`、`¥` 等符号无法确定币种时，不会猜测。你可以在「汇率、识别与 AI」里指定「此网站的原币种」（只对当前网站生效，例如加拿大网站的 `$` 固定为 CAD；按完整域名匹配，`www.shop.ca` 和 `shop.ca` 需分别设置），或指定对所有网站生效的「网页原币种」。网站设置优先。
-- 填写「银行卡外币手续费」（例如 1.5%）后，跨币种换算结果会加上这笔费用，更接近实际扣款；详情里会注明。
-- 面板顶部的快速换算框：输入金额、选原币种，直接得到你的货币金额（使用同一份汇率和手续费设置）。
-- 自动识别漏掉的价格：选中文字，右键选择「用价译换算」，结果显示在页面对话框里。换算在本地完成，不发送选中的文字。
-- 带「～」的起价会保留「起」，不会当成固定价格。
-- 「参考标价差」显示原价减现价，默认开启，可在「汇率、识别与 AI」里关闭。只在两种确定情况下显示：页面结构化数据明确标了原价（schema.org `StrikethroughPrice` / `ListPrice`），或同一商品里恰好一个划线价和一个现价。会员价、优惠券等有条件的价格不计算。它不等于实际可省金额。
+Open the panel, pick your currency and leave **Convert automatically** on. Original prices are never replaced; a small tag appears next to each one.
 
-默认使用免费的央行每日参考汇率，不是实时交易价：优先用欧洲央行（ECB）；ECB 没有的币种（如新台币、越南盾、迪拉姆、里亚尔、卢布），用 Frankfurter 汇总多家央行得到的综合值。换算详情会注明每个汇率的来源。也可以在设置里改用自己的 Wise Token。所有结果都是估算，除非你设置了手续费，否则不含手续费，也不保证等于实际结算金额。
+- **Details.** Click or tap a tag to see the source currency, rate date, rate source and estimate notes. Hovering shows a summary. With a keyboard, Tab onto one tag, move between tags with the arrow keys, open details with Enter or Space and close with Escape; prices do not each add a Tab stop.
+- **Quick convert.** The ticket at the top of the panel shows the live rate for a currency pair. Type an amount to convert it.
+- **Right-click.** For a price the page scan missed, select it and choose **Convert with PriceLens**. The result opens in a small dialog on the page. The selection is parsed locally and never sent anywhere.
+- **Pause a site.** Turn on **Pause on this site** for sites you do not want converted.
+- **Ambiguous symbols.** When `$` or `¥` could mean several currencies, PriceLens skips the price rather than guess. Under **Rates, recognition and AI** you can set **Currency on this site** (for example, `$` means CAD on a Canadian shop) or a **Page currency** for all sites. The site setting wins. Sites match by exact hostname, so `www.shop.ca` and `shop.ca` are separate.
+- **Card fee.** Set your card's foreign transaction fee (for example 1.5%) to add it to cross-currency results, so they are closer to what you will be charged. Details say when a fee is included.
+- **Starting prices.** Prices marked with `～` keep their "from" meaning and are never shown as a fixed price.
+- **List-price difference.** Shows the list price minus the current price. It is on by default and can be turned off. It only appears when the page clearly marks a list price (schema.org `StrikethroughPrice` / `ListPrice`) or when a product shows exactly one struck-through price and one current price. Member, coupon and other conditional prices are ignored. It is not a guaranteed saving.
 
-## 可选的 AI 币种识别
+Rates are free daily central-bank reference rates, not live trading prices. The European Central Bank (ECB) is preferred. For currencies the ECB does not publish (such as TWD, VND, AED, SAR and RUB), PriceLens uses Frankfurter's blend of several central banks. The details for each conversion name the source of its rate. You can switch to Wise with your own API token. Every result is an estimate. It excludes fees unless you set one, and may differ from the amount you are finally charged.
 
-不开启也能正常换算。它只在本地无法确定币种时，帮助判断价格附近的文字；不确定就跳过。金额计算和标注位置仍在你的浏览器里完成。
+## Optional AI currency recognition
 
-使用前需要自己的 [TypeSafe](https://console.typesafe.ai/) Key。请先阅读面板里的发送说明再开启。TypeSafe 可能收费。请不要在含有私人或敏感内容的页面开启。
+Everything works without it. When the page alone cannot settle a currency, AI can read the text around that price and choose from a fixed list; if it is unsure, the price is skipped. Amounts, conversion and placement are always computed in your browser.
 
-## 开发与验证
+It needs your own [TypeSafe](https://console.typesafe.ai/) key, which may be billed. Read the notice in the panel before enabling it, and do not enable it on pages with private or sensitive content.
 
-需要 Node.js 24 或更新版本；推送和 PR 会在 GitHub Actions（Ubuntu + Playwright Chromium）上自动运行全部测试，有测试被跳过即视为失败。测试只用 Node 标准库，无需安装 npm 依赖。
+## Privacy and feedback
+
+Page text is not uploaded by default. Keys and tokens stay on your device. See the [privacy policy](PRIVACY.md).
+
+If an amount is wrong or a tag covers something, pause the site first, then report it in [Issues](https://github.com/JohnsonRan/PriceLens/issues). Hide personal information, and never post a key or token.
+
+## Development
+
+Requires Node.js 24 or newer. Tests use only the Node standard library, so there is nothing to `npm install`.
 
 ```sh
 npm test
 ```
 
-默认测试只运行仓库明确列出的产品回归，使用假凭据、模拟网络和独立临时浏览器资料，不调用付费服务。DOM 测试需要 Chromium/Chrome：用 `CHROME_BIN` 指定可执行文件；也会查找本机（Windows 或 Linux）已有的 Playwright Chromium headless shell。浏览器不存在时 DOM 测试会明确跳过，**纯逻辑通过不等于浏览器验证通过**。
+Every push and pull request runs the whole suite on GitHub Actions (Ubuntu with Playwright Chromium); any skipped test fails the run.
 
-真实 MV3 冒烟测试另外需要完整 Chromium（不是 headless shell）：设置 `MV3_CHROME_BIN`，或使用本机已安装的 Playwright Chromium。它在独立临时 profile 中加载实际扩展，使用合成缓存汇率并禁用扩展外部请求，验证后台消息、设置保存、页面启停和 Enter/Escape；缺少浏览器时明确跳过。该测试不验证线上服务、权限弹窗或长期 worker 回收行为。
-
-## 隐私与反馈
-
-默认不上传网页文字。Key 和 Token 只保存在本机。详细说明见[隐私政策](PRIVACY.md)。
-
-遇到金额错误或页面被挡住，先暂停该网站，再去 [Issues](https://github.com/JohnsonRan/PriceLens/issues) 反馈。请遮住个人信息，不要贴 Key 或 Token。
+- The suite covers the product regressions listed in `package.json`. It uses fake credentials, mocked network and throwaway browser profiles, and never calls a paid service.
+- DOM tests need Chromium or Chrome. Point `CHROME_BIN` at an executable, or they will look for an installed Playwright Chromium headless shell on Windows or Linux. Without a browser they are skipped explicitly. **Passing logic tests alone is not a browser verification.**
+- The real MV3 smoke test needs full Chromium (not the headless shell). Set `MV3_CHROME_BIN` or install Playwright Chromium. It loads the actual extension in a temporary profile with synthetic cached rates and blocked outbound requests. It checks worker messaging, saving settings, toggling pages, right-click results, the quick converter and Enter/Escape. It does not exercise live services, permission prompts or long-term worker eviction.

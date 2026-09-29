@@ -1,56 +1,67 @@
-# 价译 · PriceLens 隐私政策
+# PriceLens Privacy Policy
 
-适用版本：0.2.0；更新日期：2026-09-28。维护者：[JohnsonRan / PriceLens](https://github.com/JohnsonRan/PriceLens)。
+**English** · [简体中文](PRIVACY.zh-CN.md)
 
-PriceLens 的用途是在网页原价旁显示货币换算估算。普通换算无需账户；可选 AI 默认关闭。参考标价差只在本地计算，不使用 AI，不发送网页内容。
+Applies to version 0.3.0. Last updated 2026-09-30. Maintainer: [JohnsonRan / PriceLens](https://github.com/JohnsonRan/PriceLens).
 
-## 1. 本地处理与保存
+PriceLens shows currency-conversion estimates next to prices on web pages. Everyday conversion needs no account. Optional AI is off by default. List-price differences are computed locally, without AI, and send no page content.
 
-- 扩展在普通 HTTP/HTTPS 网页中读取价格、有限的附近文字、币种信息和布局，用于识别与放置换算标注。默认不把这些网页内容发送到外部服务。
-- 扩展在本地读取当前网站地址，用于「暂停此网站」和部分敏感路径检查；不建立访问历史数据库，也不请求浏览器历史记录权限。
-- 右键「用价译换算」只在本地解析你选中的文字（最多 500 字符），不发送给任何服务；需要时按第 2 节的方式查询汇率。
-- 页面自带的商品结构化数据（JSON-LD）和价格划线格式只在本地读取，用于计算参考标价差。
-- 自动换算开关、参考标价差开关、目标币种、汇率来源、原币种提示、按网站指定的原币种及其域名、手续费比例及暂停网站的域名列表使用浏览器 `storage.sync`，可能通过你启用的 Chrome / Edge 同步服务同步。
-- Wise Token、TypeSafe Key、AI 同意状态和汇率缓存保存在本机的扩展存储中，不使用浏览器同步。Wise Token 和 TypeSafe Key 不提供给网页内容脚本；汇率和 AI 开关状态只以换算所需的形式传给扩展自己的内容脚本，网页本身无法读取。浏览器本机存储不是独立的加密保险库；请保护设备和浏览器账户。
-- 扩展不包含广告、分析 SDK、浏览行为遥测或开发者的数据接收服务器。
+## 1. Local processing and storage
 
-## 2. 外部请求与接收方
+- **Reading pages.** On ordinary HTTP/HTTPS pages the extension reads prices, a limited amount of nearby text, currency information and layout, so it can recognise prices and place conversion tags. By default none of this page content is sent to any external service.
+- **Site address.** The extension reads the current site's address locally, for "Pause on this site", per-site currency and some sensitive-path checks. It keeps no browsing-history database and does not request the browser history permission.
+- **Right-click conversion.** "Convert with PriceLens" parses the text you selected (up to 500 characters) locally and sends it nowhere. Rates are fetched, when needed, as described in section 2.
+- **Structured data.** Product structured data (JSON-LD) and struck-through price formatting are read only locally, to compute list-price differences.
+- **Settings synced by your browser.** These settings are stored in the browser's `storage.sync` and may be synced by Chrome or Edge sync if you have it enabled:
+  - auto-convert and list-price-difference switches
+  - target currency and rate source
+  - page currency hint
+  - per-site currencies with their hostnames
+  - card fee percentage
+  - the list of paused sites
+- **Data kept on this device only.** The Wise token, the TypeSafe key, your AI consent and cached rates are stored in local extension storage and are never synced.
+  - The Wise token and TypeSafe key are never given to content scripts.
+  - Rates and the AI on/off state reach the extension's own content script only in the form needed for conversion; web pages themselves cannot read them.
+  - Local browser storage is not a separately encrypted vault, so protect your device and browser account.
+- **No tracking.** The extension contains no ads, no analytics SDK, no browsing telemetry and no developer-operated data server. Its font and icons are bundled; it loads no remote code or assets.
 
-| 功能与触发条件 | 接收方 | 发送内容 |
+## 2. External requests and recipients
+
+| Feature and trigger | Recipient | What is sent |
 | --- | --- | --- |
-| 默认央行参考汇率；打开面板、页面需要汇率、右键换算或手动刷新时按缓存策略查询 | `api.frankfurter.dev`（Frankfurter：ECB 数据，以及 ECB 未覆盖币种的多家央行综合值） | 目标币种代码、提供方标识、需要补充的币种代码；不发送网页价格或网页内容 |
-| 选择 Wise、填写自己的 Token 并授权服务访问后 | `api.wise.com` | 目标币种代码及用于认证的 Wise Token；不发送网页价格或网页内容 |
-| 阅读面板说明、填写 Key、勾选 AI 并保存且授权后，未暂停的网站出现本地无法确定币种的候选时 | `api.typesafe.ai`（TypeSafe / Jev） | 价格原文、每项最多 360 字符的局部文字、可选币种、固定判断问题和模型名称；Key 通过认证请求头发送 |
+| Default central-bank rates, fetched under the cache policy when the panel opens, a page needs rates, you use right-click conversion, or you refresh | `api.frankfurter.dev` (Frankfurter: ECB data, plus a multi-central-bank blend for currencies the ECB does not cover) | Target currency code, provider name and the currency codes to fill in. No page prices or page content. |
+| After you choose Wise, enter your own token and grant access | `api.wise.com` | Target currency code and your Wise token for authentication. No page prices or page content. |
+| After you read the notice, enter a key, enable AI, save and grant access, whenever an unpaused site shows a price whose currency cannot be settled locally | `api.typesafe.ai` (TypeSafe / Jev) | The price text, up to 360 characters of nearby text per item, the candidate currencies, fixed questions and the model name. The key is sent in the authentication header. |
 
-以上请求使用 HTTPS，不附带网页 Cookies。服务提供方仍会接收 IP 地址等正常连接信息，可能记录请求、账户或用量信息。扩展开发者不接收这些服务请求或密钥。
+All requests use HTTPS and carry no website cookies. Service providers still receive normal connection information such as your IP address, and may log requests, account or usage information. The extension's developer receives none of these requests or keys.
 
-AI 不发送整页 HTML 或截图，不主动附带当前页面 URL。片段中的网址文字仍可能被包含。AI 输出只用于有限币种选择；金额解析、换算和显示均在本地完成，不执行模型返回的代码。
+AI requests never include full-page HTML, screenshots or the current page URL, although URL-like text inside a snippet may be included. AI output only selects from a limited list of currencies. Parsing, conversion and display all happen locally, and no code returned by the model is executed.
 
-## 3. AI 的隐私边界
+## 3. AI privacy boundaries
 
-开启 AI 后，会自动处理未暂停网站上的适用价格候选，不是逐次发送前另行确认。扩展尝试排除输入控件、部分隐藏文字以及常见结账、支付、账户、登录、订单和购物车路径，并对部分邮箱和长数字作遮蔽。
+Once AI is enabled, eligible prices on unpaused sites are processed automatically; you are not asked before each request. The extension tries to exclude input fields, some hidden text, and common checkout, payment, account, sign-in, order and cart paths. It also masks some email addresses and long numbers.
 
-**这些措施不能可靠识别所有敏感页面或清除所有个人信息。** 附近文字可能包含商品名称、姓名、地址、财务信息、私人通信或健康等敏感内容。不要在敏感页面开启 AI；可以关闭 AI、关闭自动换算、暂停网站，或在浏览器扩展管理页限制网站访问。
+**These measures cannot reliably detect every sensitive page or remove all personal information.** Nearby text may include product names, names, addresses, financial details, private messages or health information. Do not enable AI on sensitive pages. You can turn AI off, turn off auto-convert, pause the site, or restrict site access on the browser's extensions page.
 
-第三方的数据留存、访问及跨境处理由其政策和你的账户协议决定。TypeSafe 当前政策声明不以 Input 训练或微调模型；这不等于所有账户均为零留存，PriceLens 不作零留存保证：
+Third-party retention, access and cross-border processing are governed by each provider's policies and your account agreement. TypeSafe currently states that it does not train or fine-tune models on input. That does not mean zero retention for every account, and PriceLens makes no zero-retention guarantee.
 
 - [Frankfurter](https://frankfurter.dev/)
-- [Wise 隐私政策](https://wise.com/privacy-policy)
-- [TypeSafe 隐私政策](https://typesafe.ai/legal/privacy-policy)
-- [TypeSafe 数据处理协议](https://typesafe.ai/legal/data-processing)
+- [Wise privacy policy](https://wise.com/privacy-policy)
+- [TypeSafe privacy policy](https://typesafe.ai/legal/privacy-policy)
+- [TypeSafe data processing agreement](https://typesafe.ai/legal/data-processing)
 
-## 4. 留存、关闭与删除
+## 4. Retention, turning things off and deletion
 
-- 设置和凭据保留至你修改、清除或卸载扩展。面板中先关闭 AI / 切回央行汇率，再勾选清除相应 Key / Token 并保存。
-- 央行汇率缓存通常 6 小时更新，Wise 通常 5 分钟；网络失败时只使用同一来源、同一目标币种且不超过 7 天的可用旧报价。过期记录可能仍在本机存储，但不继续作为有效报价使用。
-- 网页候选和 AI 判定缓存位于内存，不持久保存网页片段。后台判定缓存有效期约 15 分钟、最多 256 项；页面内缓存可保留到页面关闭、重新加载或相关设置重置。
-- 关闭 AI 并保存后停止新 AI 请求，取消可取消的在途请求并清除判定缓存；**不能撤回已经发送到第三方的数据**。如需删除服务方记录，请使用相应账户或服务方隐私联系渠道。
-- 卸载通常清除本机扩展存储；云端同步数据另受浏览器账户设置和服务政策管理。
+- **Settings and credentials** remain until you change them, clear them or uninstall the extension. To remove a key or token, first turn AI off or switch back to central-bank rates, then tick the matching "clear" option and save.
+- **Rate caches** usually refresh every 6 hours for central-bank rates and every 5 minutes for Wise. If the network fails, only usable quotes from the same source and target currency, no more than 7 days old, are used. Expired records may remain in local storage but are no longer treated as valid quotes.
+- **AI caches.** Page candidates and AI decisions are cached in memory only; page snippets are not stored persistently. The background decision cache lasts about 15 minutes with at most 256 entries. The in-page cache lasts until the page is closed or reloaded, or the relevant settings are reset.
+- **Turning AI off.** Turning AI off and saving stops new AI requests, cancels in-flight requests where possible and clears decision caches. **Data already sent to a third party cannot be recalled.** To delete a provider's records, use that account or the provider's privacy contact.
+- **Uninstalling** normally clears local extension storage. Synced data is also governed by your browser account settings and the provider's policies.
 
-## 5. 限定用途与联系
+## 5. Limited use and contact
 
-PriceLens 对用户数据的使用和传输仅用于上述用户可见的换算功能，并遵守 Chrome Web Store 用户数据政策及 Limited Use 要求。不出售用户数据，不将其用于广告、信用评估、放贷或与换算无关的目的。
+PriceLens uses and transfers user data only for the user-facing conversion features described above. It complies with the Chrome Web Store User Data Policy, including the Limited Use requirements. User data is never sold, and never used for advertising, credit assessment, lending or any purpose unrelated to conversion.
 
-问题、隐私请求或安全反馈可通过 [GitHub Issues](https://github.com/JohnsonRan/PriceLens/issues) 联系维护者。Issues 是公开的，**不要发布密钥、私人页面截图或其他敏感信息**。第三方服务的账户与数据请求应同时联系相应服务方。
+For questions, privacy requests or security reports, contact the maintainer via [GitHub Issues](https://github.com/JohnsonRan/PriceLens/issues). Issues are public, so **never post keys, screenshots of private pages or other sensitive information**. For account or data requests about a third-party service, also contact that provider.
 
-如未来改变数据用途、接收方或发送范围，会更新此政策，并在需要时重新取得同意。
+If the purpose, recipients or scope of data sent ever changes, this policy will be updated first, and consent will be requested again where required.

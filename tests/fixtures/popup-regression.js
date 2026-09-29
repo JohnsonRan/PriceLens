@@ -32,6 +32,7 @@ window.addEventListener('load', async () => {
     check('header shows the manifest version, readable and on one line', el('version').textContent === 'v9.8.7' && el('version').checkVisibility() && parseFloat(getComputedStyle(el('version')).fontSize) >= 12 && el('version').getClientRects().length === 1 && el('version').getBoundingClientRect().right <= innerWidth);
     check('header displays the generated brand icon', logo?.tagName === 'IMG' && logo.complete && logo.naturalWidth === 128 && logo.naturalHeight === 128);
     check('brand icon has no opaque white tile in either theme', getComputedStyle(logo).backgroundColor === 'rgba(0, 0, 0, 0)');
+    check('help and privacy links open the Chinese docs', [...document.querySelectorAll('[data-i18n-href]')].every((a) => /.zh-CN.md$/.test(a.href)));
     check('all secondary panels stay collapsed even with AI already enabled', [...document.querySelectorAll('details')].every((node) => !node.open));
     check('daily controls remain visible, AI/credentials/diagnostics do not', ['target', 'enabled', 'pause-site', 'status-title'].every((id) => el(id).checkVisibility()) && ['provider', 'jev-enabled', 'jev-key', 'jev-status', 'status-detail'].every((id) => !el(id).checkVisibility()));
     // Chrome caps popups at 600px; 480 keeps the main view (incl. the quick-convert row) well inside it.

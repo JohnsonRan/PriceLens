@@ -32,6 +32,7 @@ window.addEventListener('load', async () => {
     check('currency names are English', [...el('target').options].some((o) => o.textContent === 'TWD · New Taiwan Dollar'));
     check('rate status and diagnostics are English', /^Rates of 2026-09-22$/.test(el('status-title').textContent) && el('status-detail').textContent.includes('Central-bank blend: TWD'));
     check('placeholders and aria labels are translated', el('jev-key').placeholder === 'Stored only on this device, never synced' && document.querySelector('.rate-status').getAttribute('aria-label') === 'Current rate status');
+    check('help and privacy links open the English docs', [...document.querySelectorAll('[data-i18n-href]')].every((a) => /PRIVACY.md$|#readme$/.test(a.href)));
     check('expanded English settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     for (const node of document.querySelectorAll('details')) node.open = false;
     check('compact English main view fits without scrolling', document.body.scrollHeight < 480, document.body.scrollHeight);

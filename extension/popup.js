@@ -163,6 +163,7 @@ $("refresh").addEventListener("click", async () => {
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = C.t(el.dataset.i18nPlaceholder);
   for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", C.t(el.dataset.i18nAriaLabel));
   for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = C.t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll("[data-i18n-href]")) el.href = C.t(el.dataset.i18nHref);
   for (const code of Object.keys(C.CURRENCIES)) {
     $("target").add(new Option(`${code} · ${C.currencyName(code)}`, code));
     $("source-hint").add(new Option(`${code} · ${C.currencyName(code)}`, code));
