@@ -12,7 +12,7 @@ globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after t
     saved ||= { ...PriceLens.DEFAULTS, jevEnabled: true };
     if (message.type === 'getState') return response();
     if (message.type === 'saveSettings') { saved = { ...message.settings }; if (message.token !== null) hasToken = Boolean(message.token); return response(); }
-    if (message.type === 'getRates') return { ok: true, table: { provider: saved.provider, target: saved.target, rates: { USD: { rate: 0.14, asOf: '2026-09-22' } }, fetchedAt: Date.now(), stale: false } };
+    if (message.type === 'getRates') return { ok: true, table: { provider: saved.provider, target: saved.target, rates: { USD: { rate: 0.14, asOf: '2026-09-22' }, EUR: { rate: 0.5, asOf: '2026-09-22' } }, fetchedAt: Date.now(), stale: false } };
     throw new Error('Unexpected mock request');
   } },
 };
@@ -20,7 +20,7 @@ window.addEventListener('load', async () => {
   const el = (id) => document.getElementById(id);
   const wait = () => new Promise((resolve) => setTimeout(resolve, 40));
   const report = { completed: false, systemDark: matchMedia('(prefers-color-scheme: dark)').matches, checks: [] };
-  const check = (name, condition) => report.checks.push({ name, pass: Boolean(condition) });
+  const check = (name, condition, detail) => report.checks.push({ name, pass: Boolean(condition), detail });
   try {
     await wait();
     const view = new URL(location.href).searchParams.get('view');
@@ -34,7 +34,8 @@ window.addEventListener('load', async () => {
     check('brand icon has no opaque white tile in either theme', getComputedStyle(logo).backgroundColor === 'rgba(0, 0, 0, 0)');
     check('all secondary panels stay collapsed even with AI already enabled', [...document.querySelectorAll('details')].every((node) => !node.open));
     check('daily controls remain visible, AI/credentials/diagnostics do not', ['target', 'enabled', 'pause-site', 'status-title'].every((id) => el(id).checkVisibility()) && ['provider', 'jev-enabled', 'jev-key', 'jev-status', 'status-detail'].every((id) => !el(id).checkVisibility()));
-    check('compact main view fits without scrolling', document.body.scrollHeight < 450 && document.documentElement.scrollWidth <= innerWidth);
+    // Chrome caps popups at 600px; 480 keeps the main view (incl. the quick-convert row) well inside it.
+    check('compact main view fits without scrolling', document.body.scrollHeight < 480 && document.documentElement.scrollWidth <= innerWidth, document.body.scrollHeight);
     check('save is disabled before edits; refresh is available', el('save').disabled && !el('refresh').disabled);
     check('important secondary text stays at least 12px', ['token-state', 'jev-state', 'clear-token-row', 'clear-jev-row', 'source-badge', 'status-detail'].every(id => parseFloat(getComputedStyle(el(id)).fontSize) >= 12));
     check('advanced entry names its contents', el('advanced-settings').querySelector('summary').textContent === '汇率、识别与 AI');
@@ -79,6 +80,20 @@ window.addEventListener('load', async () => {
     const promptsBefore = permissions.length, savesBefore = messages.filter((m) => m.type === 'saveSettings').length;
     el('clear-token').click(); el('save').click(); await wait();
     check('Wise without a token fails before any permission prompt', permissions.length === promptsBefore && messages.filter((m) => m.type === 'saveSettings').length === savesBefore && el('notice').dataset.error === 'true');
+    el('clear-token').click(); // Undo the previous check's token clearing.
+    el('site-hint').value = 'CAD'; el('site-hint').dispatchEvent(new Event('input', { bubbles: true }));
+    el('fee').value = '1.5'; el('fee').dispatchEvent(new Event('input', { bubbles: true }));
+    el('save').click(); await wait();
+    check('per-site currency and card fee save for the current host', saved.siteHints['shop.example.com'] === 'CAD' && saved.feePercent === 1.5 && el('recognition-hint').textContent.includes('CAD') && el('footer-estimate').textContent.includes('1.5%'), [saved.siteHints, saved.feePercent, el('notice').textContent]);
+    el('calc-from').value = 'EUR'; el('calc-from').dispatchEvent(new Event('input', { bubbles: true }));
+    el('calc-amount').value = '10'; el('calc-amount').dispatchEvent(new Event('input', { bubbles: true }));
+    check('quick converter applies the loaded rate and fee without dirtying settings', el('calc-result').textContent.includes('20.30') && el('calc-result').textContent.includes('1.5%') && el('save').disabled && !el('notice').textContent.includes('未保存'), el('calc-result').textContent);
+    el('calc-amount').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    el('calc-from').value = 'GBP'; el('calc-from').dispatchEvent(new Event('input', { bubbles: true }));
+    check('quick converter names a missing rate instead of guessing', el('calc-result').textContent.includes('GBP'));
+    el('site-hint').value = ''; el('site-hint').dispatchEvent(new Event('input', { bubbles: true }));
+    el('save').click(); await wait();
+    check('clearing the site currency removes only this host', !('shop.example.com' in saved.siteHints));
     check('expanded settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     check('no runtime errors', errors.length === 0);
     report.completed = true;

@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "description": "__MSG_extDescription__",
   "minimum_chrome_version": "120",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "contextMenus", "scripting"],
   "host_permissions": ["https://api.frankfurter.dev/*"],
   "optional_host_permissions": ["https://api.typesafe.ai/*", "https://api.wise.com/*"],
   "homepage_url": "https://github.com/JohnsonRan/PriceLens",

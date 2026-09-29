@@ -5,6 +5,7 @@ let activeTab;
 let hostname = "";
 let dirty = false;
 let busy = false;
+let rates = null; // Last loaded table, for the quick converter.
 
 async function request(message) {
   const result = await chrome.runtime.sendMessage(message);
@@ -40,10 +41,20 @@ function aiUI() {
   $("clear-jev-row").hidden = !state.hasJevKey;
   $("jev-status").textContent = state.jevStatus?.message || C.t("jevIdle");
   $("jev-status").dataset.error = String(state.jevStatus?.state === "error");
-  $("recognition-hint").textContent = state.settings.sourceHint
-    ? C.t("recognitionManual", state.settings.sourceHint)
+  const siteHint = state.settings.siteHints[hostname];
+  $("recognition-hint").textContent = siteHint ? C.t("recognitionSite", siteHint)
+    : state.settings.sourceHint ? C.t("recognitionManual", state.settings.sourceHint)
     : state.settings.jevEnabled ? C.t("recognitionAi") : C.t("recognitionLocal");
   $("privacy-state").textContent = state.settings.jevEnabled ? C.t("footerAiOn") : "";
+  $("footer-estimate").textContent = state.settings.feePercent ? C.t("footerEstimateFee", state.settings.feePercent) : C.t("footerEstimate");
+}
+
+function calc() {
+  const raw = $("calc-amount").value, from = $("calc-from").value, amount = Number(raw);
+  if (!rates || !raw || !(amount >= 0)) { $("calc-result").textContent = ""; return; }
+  const same = from === rates.target, fee = same ? 0 : state.settings.feePercent;
+  const value = same ? amount : C.convert(amount, from, rates, fee);
+  $("calc-result").textContent = value === null ? C.t("calcNoRate", from) : `≈ ${C.formatMoney(value, rates.target)}${fee ? ` · ${C.t("feeShort", fee)}` : ""}`;
 }
 
 async function notifyPage() {
@@ -55,7 +66,9 @@ async function showRates(force = false) {
   $("source-badge").textContent = state.settings.provider === "wise" ? "WISE" : C.t("badgeCentralBank");
   $("status-detail").textContent = "";
   try {
+    rates = null;
     const { table } = await request({ type: "getRates", force });
+    rates = table;
     const dates = Object.values(table.rates).map((r) => r.asOf).sort();
     const range = dates[0] === dates.at(-1) ? dates[0] : `${dates[0]} — ${dates.at(-1)}`;
     document.querySelector(".rate-status").dataset.warning = String(table.stale);
@@ -67,9 +80,12 @@ async function showRates(force = false) {
     document.querySelector(".rate-status").dataset.warning = "true";
     $("status-title").textContent = C.t("statusUnavailable");
     $("status-detail").textContent = `${error.message}\n${C.t("detailFailClosed")}`;
-  }
+  } finally { calc(); }
 }
 
+// The quick converter lives in the form for layout only; it never makes settings dirty or submits them.
+$("calc-amount").addEventListener("keydown", (event) => { if (event.key === "Enter") event.preventDefault(); });
+for (const id of ["calc-amount", "calc-from"]) $(id).addEventListener("input", (event) => { event.stopPropagation(); calc(); });
 $("settings-form").addEventListener("input", () => { dirty = true; notice(C.t("noticeUnsaved"), false, "pending"); controls(); });
 $("provider").addEventListener("change", providerUI);
 $("settings-form").addEventListener("submit", async (event) => {
@@ -85,13 +101,16 @@ $("settings-form").addEventListener("submit", async (event) => {
     if ($("provider").value === "wise") origins.push("https://api.wise.com/*");
     if (origins.length && !await chrome.permissions.request({ origins })) throw new Error(C.t("errPermissionDenied"));
     const excluded = new Set(state.settings.excludedHosts);
+    const siteHints = { ...state.settings.siteHints };
     if (hostname) {
       if ($("pause-site").checked) excluded.add(hostname);
       else excluded.delete(hostname);
+      if ($("site-hint").value) siteHints[hostname] = $("site-hint").value;
+      else delete siteHints[hostname];
     }
     state = await request({
       type: "saveSettings",
-      settings: { enabled: $("enabled").checked, savingsEnabled: $("savings-enabled").checked, target: $("target").value, provider: $("provider").value, sourceHint: $("source-hint").value, excludedHosts: [...excluded], jevEnabled: $("jev-enabled").checked },
+      settings: { enabled: $("enabled").checked, savingsEnabled: $("savings-enabled").checked, target: $("target").value, provider: $("provider").value, sourceHint: $("source-hint").value, excludedHosts: [...excluded], siteHints, feePercent: Number($("fee").value) || 0, jevEnabled: $("jev-enabled").checked },
       token: $("clear-token").checked ? "" : $("token").value.trim() || null,
       jevKey: $("clear-jev").checked ? "" : $("jev-key").value.trim() || null,
     });
@@ -127,6 +146,8 @@ $("refresh").addEventListener("click", async () => {
   for (const code of Object.keys(C.CURRENCIES)) {
     $("target").add(new Option(`${code} · ${C.currencyName(code)}`, code));
     $("source-hint").add(new Option(`${code} · ${C.currencyName(code)}`, code));
+    $("site-hint").add(new Option(`${code} · ${C.currencyName(code)}`, code));
+    $("calc-from").add(new Option(code, code));
   }
   try {
     const results = await Promise.all([request({ type: "getState" }), chrome.tabs.query({ active: true, currentWindow: true })]);
@@ -137,6 +158,11 @@ $("refresh").addEventListener("click", async () => {
     $("target").value = state.settings.target;
     $("provider").value = state.settings.provider;
     $("source-hint").value = state.settings.sourceHint;
+    $("site-hint").value = state.settings.siteHints[hostname] || "";
+    $("site-hint").disabled = !hostname;
+    $("site-hint-host").textContent = hostname;
+    $("fee").value = String(state.settings.feePercent);
+    $("calc-from").value = state.settings.target === "USD" ? "EUR" : "USD";
     $("savings-enabled").checked = state.settings.savingsEnabled;
     $("pause-site").disabled = !hostname;
     $("pause-site").checked = state.settings.excludedHosts.includes(hostname);

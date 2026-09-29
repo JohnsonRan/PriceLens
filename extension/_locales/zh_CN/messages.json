@@ -469,5 +469,86 @@
   },
   "footerEstimate": {
     "message": "估算 · 不含手续费"
+  },
+  "labelSiteHint": {
+    "message": "此网站的原币种"
+  },
+  "optionFollowGlobal": {
+    "message": "跟随上面的设置"
+  },
+  "recognitionSite": {
+    "message": "$P1$ 仅补本网站的歧义符号；明确币种优先。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelFee": {
+    "message": "银行卡外币手续费（%）"
+  },
+  "hintFee": {
+    "message": "例如 1.5。只加在跨币种换算上；填 0 不加。"
+  },
+  "errFeeRange": {
+    "message": "手续费需在 0 到 10% 之间。"
+  },
+  "feeIncluded": {
+    "message": "已含你设置的 $P1$% 外币手续费。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "disclaimerFee": {
+    "message": "仅供参考，按你设置的手续费估算；实际结算以商家/银行为准。"
+  },
+  "footerEstimateFee": {
+    "message": "估算 · 含 $P1$% 手续费",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelConverter": {
+    "message": "快速换算"
+  },
+  "labelCalcAmount": {
+    "message": "金额"
+  },
+  "labelCalcFrom": {
+    "message": "原币种"
+  },
+  "calcNoRate": {
+    "message": "暂无 $P1$ 汇率",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "feeShort": {
+    "message": "含 $P1$% 手续费",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "menuConvert": {
+    "message": "用价译换算“%s”"
+  },
+  "selectionNone": {
+    "message": "选中的文字里没有找到带币种的价格。"
+  },
+  "selectionAmbiguous": {
+    "message": "$P1$：币种不明确。可在价译设置里指定此网站的原币种。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -79,12 +79,28 @@ test("conversion direction, rounding and corrupt rates", () => {
   assert.equal(C.settingsFrom({ target: "__proto__" }).target, "CNY");
 });
 
+test("per-site currency and card fee: sanitized settings, precedence and cross-currency-only fee", () => {
+  const s = C.settingsFrom({ sourceHint: "AUD", siteHints: { "shop.ca": "CAD", "bad host": "CAD", "x.test": "XXX", __proto__: { "p.test": "USD" } }, feePercent: 1.555 });
+  assert.deepEqual(s.siteHints, { "shop.ca": "CAD" });
+  assert.equal(s.feePercent, 1.56);
+  for (const bad of [-1, 11, "2", NaN, Infinity]) assert.equal(C.settingsFrom({ feePercent: bad }).feePercent, 0, String(bad));
+  assert.deepEqual(C.settingsFrom({ siteHints: ["CAD"] }).siteHints, {});
+  assert.equal(C.manualHint(s, "shop.ca"), "CAD", "site choice wins");
+  assert.equal(C.manualHint(s, "other.test"), "AUD", "else the global hint");
+  assert.equal(C.manualHint(C.DEFAULTS, "shop.ca"), "");
+  assert.equal(C.findPrices("$10", C.manualHint(s, "shop.ca"))[0].currency, "CAD");
+  const table = { rates: { USD: { rate: 0.125 } } };
+  assert.equal(C.convert(10, "USD", table), 80);
+  assert.ok(Math.abs(C.convert(10, "USD", table, 1.5) - 81.2) < 1e-9);
+});
+
 function worker(settings = {}, localData = {}, options = {}) {
   const sync = structuredClone({ ...C.DEFAULTS, ...settings });
   const local = structuredClone(localData);
   const calls = [];
   let access;
-  let listener;
+  let listener, installed, menuClick;
+  const shown = [], alerts = [], menus = [];
   let fail = false;
   let failPattern = null;
   let rows;
@@ -118,9 +134,11 @@ function worker(settings = {}, localData = {}, options = {}) {
     },
     chrome: {
       permissions: { contains: async () => { await options.beforePermission?.(); return options.granted === true; } },
-      tabs: { query: async () => [], sendMessage: async () => {} },
+      tabs: { query: async () => [], sendMessage: async (tabId, message) => { if (options.noContentScript) throw new Error("no receiver"); shown.push(message); } },
+      scripting: { executeScript: async ({ args }) => { alerts.push(args[0]); } },
+      contextMenus: { create(item) { menus.push(item); }, onClicked: { addListener(fn) { menuClick = fn; } } },
       storage: { sync: storage(sync, "sync"), local: storage(local, "local") },
-      runtime: { id: "test", getURL: (path) => `chrome-extension://test/${path}`, onMessage: { addListener(fn) { listener = fn; } } },
+      runtime: { id: "test", getURL: (path) => `chrome-extension://test/${path}`, onMessage: { addListener(fn) { listener = fn; } }, onInstalled: { addListener(fn) { installed = fn; } } },
     },
   });
   const optionsJevResponse = options.jevResponse || (() => ({ answers: {} }));
@@ -129,7 +147,8 @@ function worker(settings = {}, localData = {}, options = {}) {
   function send(message, trusted = true, url = "https://shop.test/") {
     return new Promise((resolve) => listener(message, { id: "test", url: trusted ? "chrome-extension://test/popup.html" : url }, resolve));
   }
-  return { send, calls, local, sync, access: () => access, fail: () => { fail = true; }, failOn: (pattern) => { failPattern = pattern; }, rows: (r) => { rows = r; } };
+  const menu = async (selectionText, pageUrl = "https://shop.test/") => { if (!menus.length) installed(); await menuClick({ menuItemId: "convert-selection", selectionText, pageUrl }, { id: 7 }); return shown.at(-1)?.text ?? alerts.at(-1); };
+  return { send, menu, menus, shown, alerts, calls, local, sync, access: () => access, fail: () => { fail = true; }, failOn: (pattern) => { failPattern = pattern; }, rows: (r) => { rows = r; } };
 }
 
 test("ECB fetch, cache, deduplication and stale fallback", async () => {
@@ -459,4 +478,18 @@ test("Jev deduplicates concurrent batches and enforces a bounded request budget"
   assert.equal(w.calls.length, 6);
   assert.equal((await w.send(inference([{ original: "$999", context: "Canadian dollar price $999" }]), false)).ok, false);
   assert.equal(w.calls.length, 6, "rate-limited candidates must not make another API request");
+});
+
+test("right-click selection converts locally with site hint and fee, never uploading page text", async () => {
+  const w = worker({ siteHints: { "shop.ca": "USD" }, feePercent: 1.5 });
+  const text = await w.menu("Now $10, was €5 or ¥3", "https://shop.ca/p");
+  assert.match(text, /\$10 \(USD\) ≈ CNY\s?81\.20/, "site hint resolves $ and the fee is included");
+  assert.match(text, /¥3/, "an unresolved symbol is named, not guessed");
+  assert.match(text, /1\.5%/);
+  assert.ok(w.calls.every((call) => !String(call.url).includes("shop.ca") && !call.options?.body), "only rate requests, no page text");
+  assert.match(await w.menu("no price here"), /没有找到/);
+  assert.equal(JSON.stringify(w.menus.map((m) => m.contexts)), '[["selection"]]', "menu only on selections");
+  const orphan = worker({}, {}, { noContentScript: true });
+  assert.match(await orphan.menu("USD 10"), /USD 10 \(USD\) ≈ CNY\s?80\.00/, "falls back to an injected alert when no content script answers");
+  assert.equal(orphan.alerts.length, 1);
 });

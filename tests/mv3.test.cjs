@@ -106,6 +106,12 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     for (const type of ['keyDown', 'keyUp']) await command('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, page);
     await waitFor(page, `!document.querySelector('dialog')`);
     assert.equal(await evaluate(page, `document.activeElement.matches('.pricelens-price')`), true);
+    // Right-click path minus the native menu UI (not scriptable): real worker conversion, delivered to the page dialog.
+    const selection = await evaluate(workerSession, `(async()=>{const text=await convertSelection('Now USD 10','http://127.0.0.1/');for(const tab of await chrome.tabs.query({}))await chrome.tabs.sendMessage(tab.id,{type:'showConversion',text},{frameId:0}).catch(()=>{});return text})()`);
+    assert.match(selection, /USD 10 \(USD\) ≈ CNY\s?80\.00/);
+    await waitFor(page, `document.querySelector('dialog[open]')?.textContent.includes('CNY')`);
+    await evaluate(page, `document.querySelector('dialog[open] button').click()`);
+    await waitFor(page, `!document.querySelector('dialog')`);
     const popupTarget = await command('Target.createTarget', { url: `chrome-extension://${extensionId}/popup.html` });
     const popup = await attach(popupTarget.targetId);
     await command('Emulation.setDeviceMetricsOverride', { width: 360, height: 640, deviceScaleFactor: 1, mobile: false }, popup);
@@ -118,6 +124,9 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     await evaluate(popup, `document.querySelector('#enabled').click(); document.querySelector('#save').click()`);
     await waitFor(page, `document.querySelectorAll('.pricelens-price').length===2`);
     await waitFor(popup, `!document.querySelector('#refresh').disabled`);
+    await evaluate(popup, `(() => { const a = document.querySelector('#calc-amount'); a.value = '10'; a.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    assert.match(await evaluate(popup, `document.querySelector('#calc-result').textContent`), /CNY\s?80\.00/, 'quick converter uses real cached rates');
+    fs.writeFileSync(path.join(evidence, 'popup-light.png'), Buffer.from((await command('Page.captureScreenshot', { format: 'png' }, popup)).data, 'base64'));
     await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] }, popup);
     const popupShot = await command('Page.captureScreenshot', { format: 'png' }, popup);
     fs.writeFileSync(path.join(evidence, 'popup-dark.png'), Buffer.from(popupShot.data, 'base64'));

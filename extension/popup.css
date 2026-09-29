@@ -68,7 +68,7 @@ input[role="switch"]:checked { background: var(--switch-on); }
 input[role="switch"]:checked::before { transform: translateX(14px); }
 label:not(.switch-row, .check-row, .sr-only) { display: block; font-weight: 600; margin: 0 0 5px; }
 .small-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
-select, input[type="password"] { width: 100%; min-height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 8px 10px; font: inherit; }
+select, input[type="password"], input[type="number"] { width: 100%; min-height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 8px 10px; font: inherit; }
 input::placeholder { color: var(--subtle); opacity: 1; }
 #target { font-size: 17px; font-weight: 650; min-height: 39px; }
 .hint { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 7px 0 0; }
@@ -104,7 +104,14 @@ a { color: var(--link); }
 #notice[data-tone="pending"] { color: var(--muted); }
 #notice[data-error="true"], #jev-status[data-error="true"] { color: var(--error); }
 .rate-status { padding: 0 2px; }
-#notice:empty, #privacy-state:empty { display: none; }
+.converter { margin: 10px 0 0; }
+.calc-row { display: flex; gap: 6px; }
+.calc-row input { flex: 1 1 0; min-width: 0; }
+.calc-row select { flex: 0 0 96px; }
+#calc-result { display: block; margin: 6px 2px 0; font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#site-hint-host { font-weight: 400; color: var(--muted); }
+#site-hint { margin-bottom: 11px; }
+#notice:empty, #privacy-state:empty, #calc-result:empty { display: none; }
 .status-heading { display: flex; align-items: center; gap: 6px; font-size: 11px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
 .rate-status[data-warning="true"] .dot { background: var(--warning); }

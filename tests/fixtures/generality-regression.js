@@ -5,7 +5,7 @@ const quote = rate => ({ rate, asOf: new Date().toISOString() });
 const table = { provider: 'ecb', target: 'CNY', fetchedAt: Date.now(), stale: false, rates: { USD: quote(.125), CAD: quote(.25), EUR: quote(.1) } };
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
-window.chrome = { i18n: window.PL_I18N, runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings } : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
+window.chrome = { i18n: window.PL_I18N, runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings: { ...settings } } : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
 window.addEventListener('load', async () => {
   const result = { completed: false, systemDark: matchMedia('(prefers-color-scheme: dark)').matches, checks: [] };
   const el = id => document.getElementById(id);
@@ -69,6 +69,14 @@ window.addEventListener('load', async () => {
     check('removing last metadata removes conversion', badges('dynamic').length === 0, amounts('dynamic'));
     el('currency-text').firstChild.data = 'CAD'; await wait();
     check('text metadata mutation updates price', amounts('text-metadata').some(t => t.includes('40.00')), amounts('text-metadata'));
+    settings.feePercent = 10; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
+    check('card fee is added to cross-currency badges and explained', amounts('known').some(t => t.includes('44.00')) && badges('known')[0].title.includes('10%'), amounts('known'));
+    settings.feePercent = 0; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
+    check('removing the fee restores plain conversions', amounts('known').some(t => t.includes('40.00')), amounts('known'));
+    listeners.forEach(fn => fn({ type: 'showConversion', text: '<b>USD 10</b> ≈ CNY 80' }));
+    check('right-click result opens in the page dialog as plain text', document.querySelector('dialog[open] p')?.textContent === '<b>USD 10</b> ≈ CNY 80' && !document.querySelector('dialog b'));
+    document.querySelector('dialog[open] button').click();
+    check('right-click dialog closes', !document.querySelector('dialog'));
     badges('hidden-tail')[0].click();
     settings.enabled = false;
     listeners.forEach(fn => fn({ type: 'refresh' })); await wait();

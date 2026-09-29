@@ -469,5 +469,86 @@
   },
   "footerEstimate": {
     "message": "Estimates · fees excluded"
+  },
+  "labelSiteHint": {
+    "message": "Currency on this site"
+  },
+  "optionFollowGlobal": {
+    "message": "Same as above"
+  },
+  "recognitionSite": {
+    "message": "$P1$ only resolves ambiguous symbols on this site; explicit currencies win.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelFee": {
+    "message": "Card foreign transaction fee (%)"
+  },
+  "hintFee": {
+    "message": "For example 1.5. Added to cross-currency conversions only; 0 adds nothing."
+  },
+  "errFeeRange": {
+    "message": "The fee must be between 0 and 10%."
+  },
+  "feeIncluded": {
+    "message": "Includes your $P1$% foreign transaction fee.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "disclaimerFee": {
+    "message": "For reference only, using your fee setting. The merchant or bank decides the final amount."
+  },
+  "footerEstimateFee": {
+    "message": "Estimates · incl. $P1$% fee",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelConverter": {
+    "message": "Quick convert"
+  },
+  "labelCalcAmount": {
+    "message": "Amount"
+  },
+  "labelCalcFrom": {
+    "message": "From currency"
+  },
+  "calcNoRate": {
+    "message": "No rate for $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "feeShort": {
+    "message": "incl. $P1$% fee",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "menuConvert": {
+    "message": "Convert “%s” with PriceLens"
+  },
+  "selectionNone": {
+    "message": "No price with a currency was found in the selection."
+  },
+  "selectionAmbiguous": {
+    "message": "$P1$: the currency is ambiguous. Set this site's currency in PriceLens settings.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
   }
 }

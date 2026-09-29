@@ -1,6 +1,6 @@
 importScripts("shared.js", "jev.js");
 
-const { CURRENCIES, ECB_CURRENCIES, settingsFrom, isSensitivePath, t } = PriceLens;
+const { CURRENCIES, ECB_CURRENCIES, settingsFrom, isSensitivePath, t, findPrices, manualHint, convert, formatMoney } = PriceLens;
 // If a browser rejects this, keep working: only this extension's own content script could then read local storage.
 const localReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }).catch(() => {});
 const inFlight = new Map();
@@ -134,7 +134,8 @@ async function getRates(force = false) {
 async function saveSettings(message) {
   const input = message.settings;
   if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error(t("errSettingsInvalid"));
-  if (input.excludedHosts.length > 200) throw new Error(t("errTooManyHosts"));
+  if (input.feePercent !== undefined && !(typeof input.feePercent === "number" && input.feePercent >= 0 && input.feePercent <= 10)) throw new Error(t("errFeeRange"));
+  if (input.excludedHosts.length > 200 || Object.keys(input.siteHints ?? {}).length > 200) throw new Error(t("errTooManyHosts"));
   await localReady;
   const stored = await chrome.storage.local.get(["wiseToken", "jevKey"]);
   const token = message.token === null ? stored.wiseToken || "" : message.token;
@@ -166,6 +167,42 @@ async function saveSettings(message) {
   chrome.tabs.query({}).then((tabs) => Promise.allSettled(tabs.map((tab) => chrome.tabs.sendMessage(tab.id, { type: "refresh", resetJev: true })))).catch(() => {});
   return { settings, hasToken: Boolean(token), hasJevKey: Boolean(jevKey), jevStatus: PriceLensJev.getStatus() };
 }
+
+// Right-click a selection: converted locally with the saved settings; nothing about the page leaves the browser.
+async function convertSelection(text, pageUrl) {
+  const settings = await getSettings();
+  let host = "";
+  try { host = new URL(pageUrl).hostname; } catch { /* No page host: global hint only. */ }
+  const prices = findPrices(String(text ?? "").slice(0, 500), manualHint(settings, host), true).slice(0, 5);
+  if (!prices.length) return t("selectionNone");
+  const table = await getRates();
+  const lines = prices.map((price) => {
+    if (!price.currency) return t("selectionAmbiguous", price.original);
+    if (price.currency === settings.target) return `${price.original} = ${formatMoney(price.amount, settings.target)}`;
+    const value = convert(price.amount, price.currency, table, settings.feePercent);
+    return value === null ? t("calcNoRate", price.currency) : `${price.original} (${price.currency}) ≈ ${formatMoney(value, settings.target)}`;
+  });
+  const fee = settings.feePercent && prices.some((price) => price.currency && price.currency !== settings.target);
+  if (fee) lines.push(t("feeIncluded", settings.feePercent));
+  if (table.stale) lines.push(t("staleWarning", table.warning));
+  lines.push(t(fee ? "disclaimerFee" : "disclaimer"));
+  return lines.join("\n");
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({ id: "convert-selection", title: t("menuConvert"), contexts: ["selection"] }, () => void chrome.runtime.lastError);
+});
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== "convert-selection" || !tab?.id) return;
+  let text;
+  try { text = await convertSelection(info.selectionText, info.pageUrl); } catch (error) { text = error.message || t("errGeneric"); }
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: "showConversion", text }, { frameId: 0 });
+  } catch {
+    // No live content script (tab opened before install/update): the click's activeTab grant allows a plain alert.
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: (message) => alert(message), args: [text] }).catch(() => {});
+  }
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false;

@@ -19,7 +19,7 @@ globalThis.chrome = {
 window.addEventListener('load', async () => {
   const el = (id) => document.getElementById(id);
   const report = { completed: false, systemDark: matchMedia('(prefers-color-scheme: dark)').matches, checks: [] };
-  const check = (name, condition) => report.checks.push({ name, pass: Boolean(condition) });
+  const check = (name, condition, detail) => report.checks.push({ name, pass: Boolean(condition), detail });
   try {
     await new Promise((resolve) => setTimeout(resolve, 60));
     for (const node of document.querySelectorAll('details')) node.open = true;
@@ -34,7 +34,7 @@ window.addEventListener('load', async () => {
     check('placeholders and aria labels are translated', el('jev-key').placeholder === 'Stored only on this device, never synced' && document.querySelector('.rate-status').getAttribute('aria-label') === 'Current rate status');
     check('expanded English settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     for (const node of document.querySelectorAll('details')) node.open = false;
-    check('compact English main view fits without scrolling', document.body.scrollHeight < 450);
+    check('compact English main view fits without scrolling', document.body.scrollHeight < 480, document.body.scrollHeight);
     check('no runtime errors', errors.length === 0);
     report.completed = true;
   } catch (error) { report.error = error.message; }

@@ -11,7 +11,8 @@
   const currencyName = (code, locale = uiLocale()) => new Intl.DisplayNames([locale], { type: "currency" }).of(code);
   const CURRENCIES = Object.freeze(Object.fromEntries(CODES.map((code) => [code, true])));
   const ECB_CURRENCIES = "AUD BRL CAD CHF CNY CZK DKK EUR GBP HKD HUF IDR ILS INR ISK JPY KRW MXN MYR NOK NZD PHP PLN RON SEK SGD THB TRY USD ZAR".split(" ");
-  const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], savingsEnabled: true, jevEnabled: false });
+  const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], siteHints: {}, feePercent: 0, savingsEnabled: true, jevEnabled: false });
+  const HOST = /^[a-z0-9.:[\]-]+$/i;
   const SYMBOLS = {
     "US$": "USD", "CA$": "CAD", "C$": "CAD", "AU$": "AUD", "A$": "AUD",
     "NZ$": "NZD", "HK$": "HKD", "SG$": "SGD", "S$": "SGD", "NT$": "TWD",
@@ -119,15 +120,23 @@
       target: Object.hasOwn(CURRENCIES, value.target) ? value.target : DEFAULTS.target,
       provider: value.provider === "wise" ? "wise" : "ecb",
       sourceHint: Object.hasOwn(CURRENCIES, value.sourceHint) ? value.sourceHint : "",
-      excludedHosts: Array.isArray(value.excludedHosts) ? value.excludedHosts.filter((s) => typeof s === "string" && /^[a-z0-9.:[\]-]+$/i.test(s)).slice(0, 200) : [],
+      excludedHosts: Array.isArray(value.excludedHosts) ? value.excludedHosts.filter((s) => typeof s === "string" && HOST.test(s)).slice(0, 200) : [],
+      // Per-site source currency: resolves ambiguous symbols on that host only; wins over the global hint.
+      siteHints: value.siteHints && typeof value.siteHints === "object" && !Array.isArray(value.siteHints)
+        ? Object.fromEntries(Object.entries(value.siteHints).filter(([host, code]) => HOST.test(host) && Object.hasOwn(CURRENCIES, code)).slice(0, 200)) : {},
+      // Card foreign-transaction fee, added to cross-currency conversions only.
+      feePercent: typeof value.feePercent === "number" && value.feePercent >= 0 && value.feePercent <= 10 ? Math.round(value.feePercent * 100) / 100 : 0,
     };
   }
 
-  function convert(amount, source, table) {
+  function convert(amount, source, table, feePercent = 0) {
     const rate = table?.rates?.[source]?.rate;
     // APIs return units of source currency per ONE unit of the user's target currency.
-    return typeof rate === "number" && Number.isFinite(rate) && rate > 0 ? amount / rate : null;
+    return typeof rate === "number" && Number.isFinite(rate) && rate > 0 ? amount / rate * (1 + feePercent / 100) : null;
   }
+
+  // Manual hint for a host: this site's choice, else the global one, else none.
+  const manualHint = (settings, host) => settings.siteHints?.[host] || settings.sourceHint || "";
 
   function pairSavings(input, choice) {
     const pair = typeof choice === "string" && /^([A-D])_REFERENCE_([A-D])_CURRENT$/.exec(choice);
@@ -217,7 +226,7 @@
     return new Intl.NumberFormat(uiLocale(), { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
+  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, manualHint, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

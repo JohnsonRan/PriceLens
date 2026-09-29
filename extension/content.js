@@ -96,18 +96,19 @@
     if (restoreFocus && badge?.isConnected) badge.focus();
   }
 
-  function showDetails(badge) {
+  // badge is null for a right-click selection result, which has no badge to return focus to.
+  function showDetails(badge, body = badge.title) {
     if (detailDialog) return;
-    updateTabStops(badge);
+    if (badge) updateTabStops(badge);
     const dialog = document.createElement('dialog');
     dialog.className = 'pricelens-details';
     dialog.setAttribute(MARK, '');
     dialog.setAttribute('aria-label', C.t('detailsTitle'));
-    dialog.dataset.pricelensTheme = badge.dataset.pricelensTheme;
+    if (badge) dialog.dataset.pricelensTheme = badge.dataset.pricelensTheme;
     const heading = document.createElement('h2');
     heading.textContent = C.t('detailsTitle');
     const text = document.createElement('p');
-    text.textContent = badge.title;
+    text.textContent = body;
     const close = document.createElement('button');
     close.type = 'button';
     close.autofocus = true;
@@ -119,6 +120,7 @@
     detailDialog = dialog;
     detailBadge = badge;
     document.body.append(dialog);
+    if (!badge) dialog.dataset.pricelensTheme = backgroundTheme(dialog); // Page body colors, sampled from the dialog's parent.
     dialog.showModal();
   }
 
@@ -281,7 +283,8 @@
   }
 
   function hintFor(node) {
-    if (settings.sourceHint) return settings.sourceHint;
+    const manual = C.manualHint(settings, location.hostname);
+    if (manual) return manual;
     let el = node.parentElement;
     const scope = el?.closest(CURRENCY_SCOPE);
     for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
@@ -620,7 +623,7 @@
       const ai = !price.currency;
       if (ai) price.currency = aiCurrency(anchor, price);
       if (!price.currency || (price.currency === settings.target && !price.savings)) continue;
-      const amount = price.currency === settings.target ? price.amount : C.convert(price.amount, price.currency, table);
+      const amount = price.currency === settings.target ? price.amount : C.convert(price.amount, price.currency, table, settings.feePercent);
       if (amount === null || !Number.isFinite(amount)) continue;
       const badge = old[badges.length] || document.createElement("button");
       if (!badge.hasAttribute(MARK)) {
@@ -638,7 +641,8 @@
       const source = C.t({ wise: "sourceWise", blend: "sourceBlend" }[rate?.source ?? table.provider] ?? "sourceEcb");
       const basis = price.savings ? C.t("basisSavings", C.formatMoney(price.savings.reference.amount, price.currency), C.formatMoney(price.savings.current.amount, price.currency), C.formatMoney(price.amount, price.currency)) : `${price.original} (${price.currency})`;
       const quote = price.currency === settings.target ? C.t("quoteSameCurrency") : C.t("quoteTimes", source, rate.asOf, new Date(table.fetchedAt).toLocaleString(C.uiLocale()));
-      let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${stale ? `${C.t("staleWarning", table.warning)}\n` : ""}${C.t("disclaimer")}`;
+      const fee = price.currency !== settings.target && settings.feePercent ? `${C.t("feeIncluded", settings.feePercent)}\n` : "";
+      let title = `${basis} → ${C.formatMoney(amount, settings.target)}\n${quote}\n${fee}${stale ? `${C.t("staleWarning", table.warning)}\n` : ""}${C.t(fee ? "disclaimerFee" : "disclaimer")}`;
       if (price.minimum) title += `\n${C.t("minimumNote")}`;
       if (price.savings) title += `\n${C.t("savingsNote", C.t(price.savings.source === "structured" ? "savingsStructured" : "savingsStrike"))}`;
       else if (ai) title += `\n${C.t("aiCurrencyNote", price.currency)}`;
@@ -975,6 +979,10 @@
     if (message?.type === "refresh") {
       if (message.resetJev) { resetAI(); revision++; queue(document.body); }
       refresh();
+    }
+    if (message?.type === "showConversion" && typeof message.text === "string" && document.body) {
+      closeDetails(false);
+      showDetails(null, message.text);
     }
   });
   window.addEventListener("resize", () => { queueAppearance(); queue(document.body); });
