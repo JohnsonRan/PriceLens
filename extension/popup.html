@@ -12,57 +12,71 @@
   <header><img class="logo" src="icons/icon128.png" alt="" aria-hidden="true"><h1>PriceLens<span data-i18n="brandLocal">价译</span></h1><span id="version" class="version"></span></header>
   <main>
     <form id="settings-form">
-      <section class="hero">
-        <label for="target" class="small-label" data-i18n="labelTarget">我的货币</label>
-        <select id="target" name="target" required></select>
-        <label class="switch-row" for="enabled"><span data-i18n="labelEnabled">自动换算</span><input id="enabled" type="checkbox" role="switch" checked></label>
-      </section>
-      <label class="check-row site-row"><input id="pause-site" type="checkbox"><span><span data-i18n="labelPauseSite">暂停此网站</span> <small id="site-name" data-i18n="loading">读取中…</small></span></label>
-      <section class="rate-status" aria-label="当前汇率状态" data-i18n-aria-label="ariaRateStatus">
-        <div class="status-heading"><span class="dot" aria-hidden="true"></span><strong id="status-title" data-i18n="statusReading">正在读取汇率…</strong><span id="source-badge">—</span></div>
-      </section>
-      <section class="converter" aria-label="快速换算" data-i18n-aria-label="labelConverter">
-        <div class="calc-row">
-          <input id="calc-amount" form="calc-form" type="number" min="0" step="any" inputmode="decimal" placeholder="快速换算" data-i18n-placeholder="labelConverter" aria-label="金额" data-i18n-aria-label="labelCalcAmount">
-          <select id="calc-from" form="calc-form" aria-label="原币种" data-i18n-aria-label="labelCalcFrom"></select>
+      <section class="ticket">
+        <div class="pair">
+          <div class="chip-field"><label for="calc-from" class="caption" data-i18n="labelCalcFrom">原币种</label><select id="calc-from" form="calc-form"></select></div>
+          <svg class="pair-arrow" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 12h15m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="chip-field to"><label for="target" class="caption" data-i18n="labelTarget">我的货币</label><select id="target" name="target" required></select></div>
         </div>
-        <output id="calc-result" for="calc-amount calc-from" aria-live="polite"></output>
+        <section class="converter" aria-label="快速换算" data-i18n-aria-label="labelConverter">
+          <input id="calc-amount" form="calc-form" type="number" min="0" step="any" inputmode="decimal" placeholder="快速换算" data-i18n-placeholder="labelConverter" aria-label="金额" data-i18n-aria-label="labelCalcAmount">
+          <output id="calc-result" for="calc-amount calc-from" aria-live="polite"></output>
+          <p id="calc-rate"></p>
+        </section>
+        <section class="rate-status" aria-label="当前汇率状态" data-i18n-aria-label="ariaRateStatus">
+          <div class="status-heading"><span class="dot" aria-hidden="true"></span><span class="status-text"><strong id="status-title" data-i18n="statusReading">正在读取汇率…</strong><span id="source-badge">—</span></span><button id="refresh" type="button" class="icon-button" disabled aria-label="刷新汇率" title="刷新汇率" data-i18n-aria-label="buttonRefresh" data-i18n-title="buttonRefresh"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M13.2 6.2A5.5 5.5 0 1 0 13.5 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13.6 2.6v3.8H9.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+        </section>
       </section>
+      <div class="toggles">
+        <label class="switch-row" for="enabled"><span class="row-label" data-i18n="labelEnabled">自动换算</span><input id="enabled" type="checkbox" role="switch" checked></label>
+        <label class="switch-row" for="pause-site"><span class="row-label"><span data-i18n="labelPauseSite">暂停此网站</span><small id="site-name" data-i18n="loading">读取中…</small></span><input id="pause-site" type="checkbox" role="switch"></label>
+      </div>
       <details id="advanced-settings">
-        <summary data-i18n="summaryAdvanced">汇率、识别与 AI</summary>
+        <summary><svg class="summary-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M2 4h7m3 0h2M2 8h2m3 0h7M2 12h5m3 0h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10.5" cy="4" r="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="8" r="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="12" r="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-i18n="summaryAdvanced">汇率、识别与 AI</span></summary>
         <div class="fields">
-          <label for="provider" data-i18n="labelProvider">汇率来源</label>
-          <select id="provider" name="provider">
-            <option value="ecb" data-i18n="optionEcb">央行免费参考汇率 · 日更</option>
-            <option value="wise" data-i18n="optionWise">Wise 中间价 · 需 Token</option>
-          </select>
-          <p id="provider-hint" class="hint"></p>
-          <details id="credentials" hidden>
-            <summary>Wise Token <span id="token-state"></span></summary>
-            <label for="token" class="sr-only" data-i18n="labelToken">你的 Wise Token</label>
-            <input id="token" type="password" autocomplete="off" spellcheck="false" maxlength="4096">
-            <label class="check-row" id="clear-token-row"><input id="clear-token" type="checkbox"><span data-i18n="clearToken">清除 Token（先切回央行汇率）</span></label>
-            <p class="hint" data-i18n="hintLocalOnly">仅保存在本机，不传给网页。</p>
-          </details>
-          <label for="source-hint" data-i18n="labelSourceHint">网页原币种</label>
-          <select id="source-hint" name="sourceHint" aria-describedby="recognition-hint"><option value="" data-i18n="optionAutoDetect">自动识别币种</option></select>
-          <p id="recognition-hint" class="hint" data-i18n="loading">读取中…</p>
-          <label for="site-hint"><span data-i18n="labelSiteHint">此网站的原币种</span> <small id="site-hint-host"></small></label>
-          <select id="site-hint" name="siteHint"><option value="" data-i18n="optionFollowGlobal">跟随上面的设置</option></select>
-          <label for="fee" data-i18n="labelFee">银行卡外币手续费（%）</label>
-          <input id="fee" name="feePercent" type="number" min="0" max="10" step="any" inputmode="decimal" aria-describedby="fee-hint">
-          <p id="fee-hint" class="hint" data-i18n="hintFee">例如 1.5。只加在跨币种换算上；填 0 不加。</p>
-          <label class="check-row"><input id="savings-enabled" type="checkbox" aria-describedby="savings-hint"><span data-i18n="labelSavings">显示参考标价差</span></label>
-          <p id="savings-hint" class="hint" data-i18n="hintSavings">原价减现价。只用页面标注的原价或划线价，在本地计算，不发送网页内容。</p>
-          <details id="ai-settings">
+          <fieldset class="group">
+            <legend data-i18n="groupRates">汇率</legend>
+            <label for="provider" data-i18n="labelProvider">汇率来源</label>
+            <select id="provider" name="provider">
+              <option value="ecb" data-i18n="optionEcb">央行免费参考汇率 · 日更</option>
+              <option value="wise" data-i18n="optionWise">Wise 中间价 · 需 Token</option>
+            </select>
+            <p id="provider-hint" class="hint"></p>
+            <details id="credentials" class="sub" hidden>
+              <summary>Wise Token <span id="token-state"></span></summary>
+              <label for="token" class="sr-only" data-i18n="labelToken">你的 Wise Token</label>
+              <input id="token" type="password" autocomplete="off" spellcheck="false" maxlength="4096">
+              <label class="check-row" id="clear-token-row"><input id="clear-token" type="checkbox"><span data-i18n="clearToken">清除 Token（先切回央行汇率）</span></label>
+              <p class="hint" data-i18n="hintLocalOnly">仅保存在本机，不传给网页。</p>
+            </details>
+          </fieldset>
+          <fieldset class="group">
+            <legend data-i18n="groupRecognition">识别</legend>
+            <label for="source-hint" data-i18n="labelSourceHint">网页原币种</label>
+            <select id="source-hint" name="sourceHint" aria-describedby="recognition-hint"><option value="" data-i18n="optionAutoDetect">自动识别币种</option></select>
+            <p id="recognition-hint" class="hint" data-i18n="loading">读取中…</p>
+            <label for="site-hint" class="field-label"><span data-i18n="labelSiteHint">此网站的原币种</span> <small id="site-hint-host"></small></label>
+            <select id="site-hint" name="siteHint"><option value="" data-i18n="optionFollowGlobal">跟随上面的设置</option></select>
+          </fieldset>
+          <fieldset class="group">
+            <legend data-i18n="groupDisplay">显示</legend>
+            <div class="inline-field">
+              <label for="fee" data-i18n="labelFee">银行卡外币手续费（%）</label>
+              <input id="fee" name="feePercent" type="number" min="0" max="10" step="any" inputmode="decimal" aria-describedby="fee-hint">
+            </div>
+            <p id="fee-hint" class="hint" data-i18n="hintFee">例如 1.5。只加在跨币种换算上；填 0 不加。</p>
+            <label class="switch-row" for="savings-enabled"><span class="row-label" data-i18n="labelSavings">显示参考标价差</span><input id="savings-enabled" type="checkbox" role="switch" aria-describedby="savings-hint"></label>
+            <p id="savings-hint" class="hint" data-i18n="hintSavings">原价减现价。只用页面标注的原价或划线价，在本地计算，不发送网页内容。</p>
+          </fieldset>
+          <details id="ai-settings" class="sub">
             <summary><span data-i18n="summaryAi">AI 辅助</span> <span id="jev-state" data-i18n="stateOff">· 关闭</span></summary>
-            <p id="ai-consent" class="hint consent"><span data-i18n="aiConsent">开启后，会在未暂停的网站自动向 TypeSafe 发送价格和附近文字（每项最多 360 字符），用于币种识别。可能收费；不发送整页，片段仍可能含私人或敏感信息，请勿在敏感页面启用。</span><a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer" data-i18n="linkPrivacyNote">隐私说明 ↗</a></p>
+            <p id="ai-consent" class="hint consent"><span data-i18n="aiConsent">开启后，会在未暂停的网站自动向 TypeSafe 发送价格和附近文字（每项最多 360 字符），用于币种识别。可能收费；不发送整页，片段仍可能含私人或敏感信息，请勿在敏感页面启用。</span> <a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer" data-i18n="linkPrivacyNote">隐私说明 ↗</a></p>
             <label class="check-row"><input id="jev-enabled" type="checkbox" aria-describedby="ai-consent"><span data-i18n="labelJevEnabled">启用 AI，并同意上述发送</span></label>
-            <a id="jev-key-link" href="https://console.typesafe.ai/" target="_blank" rel="noreferrer" data-i18n="linkGet">获取 ↗</a><label for="jev-key">TypeSafe Key</label>
+            <div class="key-head"><label for="jev-key">TypeSafe Key</label><a id="jev-key-link" href="https://console.typesafe.ai/" target="_blank" rel="noreferrer" data-i18n="linkGet">获取 ↗</a></div>
             <input id="jev-key" type="password" autocomplete="off" spellcheck="false" maxlength="4096" placeholder="仅保存在本机" data-i18n-placeholder="placeholderLocalOnly">
             <label class="check-row" id="clear-jev-row"><input id="clear-jev" type="checkbox"><span data-i18n="clearJev">清除 Key（先关闭 AI）</span></label>
           </details>
-          <details id="diagnostics">
+          <details id="diagnostics" class="sub">
             <summary data-i18n="summaryDiagnostics">诊断</summary>
             <p id="status-detail" class="hint" data-i18n="loading">读取中…</p>
             <p id="jev-status" class="hint" role="status"></p>
@@ -71,8 +85,8 @@
         </div>
       </details>
       <div class="save-area">
-        <div class="actions"><button id="save" type="submit" disabled data-i18n="buttonSave">保存</button><button id="refresh" type="button" class="secondary" disabled data-i18n="buttonRefresh">刷新汇率</button></div>
         <p id="notice" role="status" aria-live="polite"></p>
+        <button id="save" type="submit" disabled data-i18n="buttonSave">保存</button>
       </div>
     </form>
     <!-- Owns the quick-convert controls so their validity never blocks saving settings. -->

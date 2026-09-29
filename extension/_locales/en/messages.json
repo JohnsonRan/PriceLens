@@ -550,5 +550,14 @@
         "content": "$1"
       }
     }
+  },
+  "groupRates": {
+    "message": "Rates"
+  },
+  "groupRecognition": {
+    "message": "Recognition"
+  },
+  "groupDisplay": {
+    "message": "Display"
   }
 }

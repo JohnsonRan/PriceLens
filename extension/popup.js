@@ -51,10 +51,16 @@ function aiUI() {
 
 function calc() {
   const raw = $("calc-amount").value, from = $("calc-from").value, amount = Number(raw);
+  // Reference rate for the ticket: scale small units (JPY, KRW…) so the figure stays readable.
+  let base = 1;
+  while (rates && from !== rates.target && C.convert(base, from, rates, 0) < 1 && base < 1e6) base *= 10;
+  const unit = rates && from !== rates.target ? C.convert(base, from, rates, 0) : null;
+  $("calc-rate").textContent = unit === null ? "" : `${base.toLocaleString(C.uiLocale())} ${from} ≈ ${C.formatMoney(unit, rates.target)}`;
   if (!rates || !raw || !(amount >= 0)) { $("calc-result").textContent = ""; return; }
   const same = from === rates.target, fee = same ? 0 : state.settings.feePercent;
   const value = same ? amount : C.convert(amount, from, rates, fee);
-  $("calc-result").textContent = value === null ? C.t("calcNoRate", from) : `≈ ${C.formatMoney(value, rates.target)}${fee ? ` · ${C.t("feeShort", fee)}` : ""}`;
+  $("calc-result").textContent = value === null ? C.t("calcNoRate", from) : `≈ ${C.formatMoney(value, rates.target)}`;
+  if (value !== null && fee) $("calc-result").append(Object.assign(document.createElement("small"), { textContent: ` · ${C.t("feeShort", fee)}` }));
 }
 
 async function notifyPage() {
@@ -143,6 +149,7 @@ $("refresh").addEventListener("click", async () => {
   for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = C.t(el.dataset.i18n);
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = C.t(el.dataset.i18nPlaceholder);
   for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", C.t(el.dataset.i18nAriaLabel));
+  for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = C.t(el.dataset.i18nTitle);
   for (const code of Object.keys(C.CURRENCIES)) {
     $("target").add(new Option(`${code} · ${C.currencyName(code)}`, code));
     $("source-hint").add(new Option(`${code} · ${C.currencyName(code)}`, code));

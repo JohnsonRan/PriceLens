@@ -550,5 +550,14 @@
         "content": "$1"
       }
     }
+  },
+  "groupRates": {
+    "message": "汇率"
+  },
+  "groupRecognition": {
+    "message": "识别"
+  },
+  "groupDisplay": {
+    "message": "显示"
   }
 }

@@ -128,6 +128,10 @@ test("both popup palettes and price/cache badges meet text contrast checks", () 
     for (const fg of ["success", "warning", "error"]) assert.ok(contrast(theme[fg], theme.page) >= 4.5, `${name} ${fg}`);
     for (const bg of ["accent", "accent-hover"]) assert.ok(contrast(theme["on-accent"], theme[bg]) >= 4.5, `${name} button`);
     for (const bg of ["page", "surface", "panel"]) assert.ok(contrast(theme.focus, theme[bg]) >= 3, `${name} focus`);
+    // The exchange ticket is an inverse surface with its own text, figure and focus colours.
+    for (const fg of ["ticket-text", "ticket-muted", "ticket-accent", "ticket-warning", "ticket-error"]) assert.ok(contrast(theme[fg], theme.ticket) >= 4.5, `${name} ${fg}/ticket`);
+    assert.ok(contrast(theme.ticket, theme["ticket-accent"]) >= 4.5, `${name} target chip and save button`);
+    assert.ok(contrast(theme["ticket-focus"], theme.ticket) >= 3, `${name} ticket focus`);
   }
   const badgeCSS = fs.readFileSync(require.resolve("../extension/content.css"), "utf8");
   assert.ok(!badgeCSS.includes("prefers-color-scheme"), "page badges must not select their palette from the OS");
