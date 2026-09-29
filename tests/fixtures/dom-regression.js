@@ -126,10 +126,10 @@ window.addEventListener("load", async () => {
     check("same-currency price is untouched and AI was never requested", () => badges("same").length === 0 && aiRequests === 0);
     const themeOf = (id) => after(id)?.dataset.pricelensTheme;
     const bgOf = (id) => getComputedStyle(after(id)).backgroundColor;
-    check("light webpage chooses light palette regardless of system preference", () => themeOf("inherit-price") === "light" && bgOf("inherit-price") === "rgb(234, 246, 239)");
-    check("dark local card chooses dark palette even on a light webpage", () => themeOf("dark-price") === "dark" && bgOf("dark-price") === "rgb(24, 46, 36)");
+    check("light webpage chooses light palette regardless of system preference", () => themeOf("inherit-price") === "light" && bgOf("inherit-price") === "rgb(226, 243, 232)");
+    check("dark local card chooses dark palette even on a light webpage", () => themeOf("dark-price") === "dark" && bgOf("dark-price") === "rgb(19, 53, 37)");
     check("translucent backgrounds composite over their actual ancestors", () => themeOf("alpha-price") === "light");
-    check("gradient background uses an opaque high-contrast fallback", () => themeOf("gradient-price") === "light" && bgOf("gradient-price") === "rgb(234, 246, 239)");
+    check("gradient background uses an opaque high-contrast fallback", () => themeOf("gradient-price") === "light" && bgOf("gradient-price") === "rgb(226, 243, 232)");
     const yahooBadge = byId("yahoo-card").querySelector("[data-pricelens]");
     check("Yahoo label uses its final light location, not the black price capsule", () => yahooBadge?.dataset.pricelensTheme === "light");
     const existing = [...document.querySelectorAll("[data-pricelens]")];

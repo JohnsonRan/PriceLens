@@ -140,5 +140,9 @@ test("both popup palettes and price/cache badges meet text contrast checks", () 
   for (const palette of [badgeLight, { ...badgeLight, ...badgeDark }]) {
     assert.ok(contrast(palette["pl-text"], palette["pl-bg"]) >= 4.5);
     assert.ok(contrast(palette["pl-cache-text"], palette["pl-cache-bg"]) >= 4.5);
+    // Details dialog (ticket): body, headline figure and Close button, on the paper and on the stub.
+    for (const bg of ["pld-bg", "pld-stub-bg"]) for (const fg of ["pld-text", "pld-accent"]) assert.ok(contrast(palette[fg], palette[bg]) >= 4.5, `dialog ${fg}/${bg}`);
+    assert.ok(contrast(palette["pld-btn-text"], palette["pld-btn-bg"]) >= 4.5, "dialog button");
+    assert.ok(contrast(palette["pld-accent"], palette["pld-stub-bg"]) >= 3, "dialog focus ring");
   }
 });

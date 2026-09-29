@@ -1,28 +1,50 @@
+/* In-page PriceLens price tag: rounded "tag" end with a punched hole. Same footprint as a plain 12px chip, because
+   content.js drops any badge that would overflow its container or reflow the page.
+   System fonts only (host CSP may block extension fonts). content.js picks the light or dark palette per badge. */
 .pricelens-price[data-pricelens] {
   all: initial;
-  --pl-bg: #eaf6ef;
-  --pl-text: #15553f;
-  --pl-border: #b8dbce;
-  --pl-cache-bg: #fff4d9;
-  --pl-cache-text: #704408;
-  --pl-cache-border: #e8cb87;
+  --pl-bg: #e2f3e8;
+  --pl-text: #0f4830;
+  --pl-border: #98cdb0;
+  --pl-cache-bg: #fff0d2;
+  --pl-cache-text: #683d00;
+  --pl-cache-border: #e2bb70;
   color-scheme: light;
   display: inline-block;
   margin-inline-start: 0.4em;
-  padding: 2px 6px;
+  padding: 2px 5px 2px 10px;
   border: 1px solid var(--pl-border);
-  border-radius: 5px;
-  background: var(--pl-bg);
+  border-radius: 10px 4px 4px 10px;
+  background: radial-gradient(circle at 5.5px 50%, var(--pl-border) 2px, transparent 2.5px) no-repeat, var(--pl-bg);
   color: var(--pl-text);
-  font: 500 12px/1.5 system-ui, -apple-system, sans-serif;
+  font: 600 12px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+    white-space: nowrap;
   vertical-align: baseline;
   cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+.pricelens-price[data-pricelens]:hover { border-color: currentColor; box-shadow: 0 1px 3px rgb(0 0 0 / 15%); }
 .pricelens-price[data-pricelens]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.pricelens-price[data-pricelens][data-stale="true"] {
+  background: radial-gradient(circle at 5.5px 50%, var(--pl-cache-border) 2px, transparent 2.5px) no-repeat, var(--pl-cache-bg);
+  border-color: var(--pl-cache-border);
+  border-style: dashed;
+  color: var(--pl-cache-text);
+}
+.pricelens-price[data-pricelens][data-stale="true"]:hover { border-color: currentColor; }
+
+/* Details dialog: a small exchange ticket; the Close button sits on a perforated stub. */
 .pricelens-details[data-pricelens] {
   all: initial;
+  --pld-bg: #fffdf8;
+  --pld-text: #142820;
+  --pld-accent: #155436;
+  --pld-line: #5e8c78;
+  --pld-btn-bg: #134d34;
+  --pld-btn-text: #fffdf8;
+  --pld-stub-bg: #f1ecdf;
+  --pld-stub: 64px;
   box-sizing: border-box;
   position: fixed;
   inset: 0;
@@ -31,35 +53,51 @@
   height: fit-content;
   max-height: calc(100vh - 32px);
   overflow: auto;
-  padding: 20px;
-  border: 1px solid #b8dbce;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #20372e;
+  padding: 20px 22px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(to top, var(--pld-stub-bg) var(--pld-stub), var(--pld-bg) 0);
+  color: var(--pld-text);
   color-scheme: light;
-  font: 14px/1.6 system-ui, sans-serif;
+  font: 14px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   display: none;
+  -webkit-mask: radial-gradient(circle 9px at 0 calc(100% - var(--pld-stub)), #0000 96%, #000) 0 0 / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% calc(100% - var(--pld-stub)), #0000 96%, #000) 100% 0 / 51% 100% no-repeat;
+  mask: radial-gradient(circle 9px at 0 calc(100% - var(--pld-stub)), #0000 96%, #000) 0 0 / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% calc(100% - var(--pld-stub)), #0000 96%, #000) 100% 0 / 51% 100% no-repeat;
 }
-.pricelens-details[data-pricelens][open] { display: block; }
-.pricelens-details[data-pricelens][data-pricelens-theme="dark"] { background: #182e24; color: #d5edd7; color-scheme: dark; }
+.pricelens-details[data-pricelens][open] { display: block; animation: pricelens-in 0.18s ease-out; }
 .pricelens-details[data-pricelens]::backdrop { background: rgb(0 0 0 / 45%); }
-.pricelens-details[data-pricelens] > h2 { all: initial; display: block; color: inherit; font: 600 18px/1.5 system-ui, sans-serif; }
-.pricelens-details[data-pricelens] > p { all: initial; display: block; margin: 12px 0; color: inherit; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
-.pricelens-details[data-pricelens] > button { all: initial; display: inline-block; padding: 6px 16px; border: 1px solid currentColor; border-radius: 6px; color: inherit; font: inherit; cursor: pointer; }
-.pricelens-details[data-pricelens] > button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.pricelens-price[data-pricelens][data-stale="true"] {
-  background: var(--pl-cache-bg);
-  border-color: var(--pl-cache-border);
-  color: var(--pl-cache-text);
-}
+.pricelens-details[data-pricelens] > h2 { all: initial; display: flex; align-items: center; gap: 8px; color: inherit; font: 700 13px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0.02em; opacity: 0.85; }
+.pricelens-details[data-pricelens] > h2::before { content: ""; width: 12px; height: 8px; border-radius: 999px 2px 2px 999px; background: var(--pld-accent); }
+.pricelens-details[data-pricelens] > p { all: initial; display: block; margin: 10px -22px 0; padding: 0 22px 18px; border-bottom: 2px dashed var(--pld-line); color: inherit; font: inherit; font-variant-numeric: tabular-nums; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pricelens-details[data-pricelens] > p::first-line { color: var(--pld-accent); font-size: 1.3em; font-weight: 700; }
+.pricelens-details[data-pricelens] > button { all: initial; box-sizing: border-box; display: block; height: 36px; margin: 12px 0 0 auto; padding: 0 20px; border-radius: 10px; background: var(--pld-btn-bg); color: var(--pld-btn-text); font: 600 14px/36px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+.pricelens-details[data-pricelens] > button:hover { filter: brightness(1.12); }
+.pricelens-details[data-pricelens] > button:focus-visible { outline: 2px solid var(--pld-accent); outline-offset: 2px; }
+@keyframes pricelens-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+
 .pricelens-price[data-pricelens][data-pricelens-theme="dark"] {
   color-scheme: dark;
-  --pl-bg: #182e24;
-  --pl-text: #d5edd7;
-  --pl-border: #4f795f;
-  --pl-cache-bg: #3b301b;
-  --pl-cache-text: #ffe3a3;
-  --pl-cache-border: #8c7445;
+  --pl-bg: #133525;
+  --pl-text: #c6f1d7;
+  --pl-border: #3f7d5e;
+  --pl-cache-bg: #3a2c10;
+  --pl-cache-text: #ffe09c;
+  --pl-cache-border: #8f6d2c;
+}
+.pricelens-details[data-pricelens][data-pricelens-theme="dark"] {
+  --pld-bg: #13271d;
+  --pld-text: #e6f1ea;
+  --pld-accent: #9ff0c4;
+  --pld-line: #5e8c78;
+  --pld-btn-bg: #9ff0c4;
+  --pld-btn-text: #0f2419;
+  --pld-stub-bg: #0e1f17;
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pricelens-price[data-pricelens], .pricelens-details[data-pricelens][open] { transition: none; animation: none; }
 }
 @media print {
   .pricelens-price[data-pricelens], .pricelens-details[data-pricelens] { display: none !important; }
