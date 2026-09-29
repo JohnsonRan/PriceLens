@@ -23,8 +23,8 @@
       </section>
       <section class="converter" aria-label="快速换算" data-i18n-aria-label="labelConverter">
         <div class="calc-row">
-          <input id="calc-amount" type="number" min="0" step="any" inputmode="decimal" placeholder="快速换算" data-i18n-placeholder="labelConverter" aria-label="金额" data-i18n-aria-label="labelCalcAmount">
-          <select id="calc-from" aria-label="原币种" data-i18n-aria-label="labelCalcFrom"></select>
+          <input id="calc-amount" form="calc-form" type="number" min="0" step="any" inputmode="decimal" placeholder="快速换算" data-i18n-placeholder="labelConverter" aria-label="金额" data-i18n-aria-label="labelCalcAmount">
+          <select id="calc-from" form="calc-form" aria-label="原币种" data-i18n-aria-label="labelCalcFrom"></select>
         </div>
         <output id="calc-result" for="calc-amount calc-from" aria-live="polite"></output>
       </section>
@@ -75,6 +75,8 @@
         <p id="notice" role="status" aria-live="polite"></p>
       </div>
     </form>
+    <!-- Owns the quick-convert controls so their validity never blocks saving settings. -->
+    <form id="calc-form" hidden></form>
   </main>
   <footer><a href="https://github.com/JohnsonRan/PriceLens#readme" target="_blank" rel="noreferrer" data-i18n="footerHelp">使用帮助 ↗</a><a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer" data-i18n="footerPrivacy">隐私</a><span id="privacy-state"></span><span id="footer-estimate" data-i18n="footerEstimate">估算 · 不含手续费</span></footer>
 </body>

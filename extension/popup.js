@@ -41,7 +41,7 @@ function aiUI() {
   $("clear-jev-row").hidden = !state.hasJevKey;
   $("jev-status").textContent = state.jevStatus?.message || C.t("jevIdle");
   $("jev-status").dataset.error = String(state.jevStatus?.state === "error");
-  const siteHint = state.settings.siteHints[hostname];
+  const siteHint = C.siteHintFor(state.settings, hostname);
   $("recognition-hint").textContent = siteHint ? C.t("recognitionSite", siteHint)
     : state.settings.sourceHint ? C.t("recognitionManual", state.settings.sourceHint)
     : state.settings.jevEnabled ? C.t("recognitionAi") : C.t("recognitionLocal");
@@ -158,7 +158,7 @@ $("refresh").addEventListener("click", async () => {
     $("target").value = state.settings.target;
     $("provider").value = state.settings.provider;
     $("source-hint").value = state.settings.sourceHint;
-    $("site-hint").value = state.settings.siteHints[hostname] || "";
+    $("site-hint").value = C.siteHintFor(state.settings, hostname);
     $("site-hint").disabled = !hostname;
     $("site-hint-host").textContent = hostname;
     $("fee").value = String(state.settings.feePercent);

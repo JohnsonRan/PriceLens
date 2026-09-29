@@ -91,8 +91,10 @@ window.addEventListener('load', async () => {
     el('calc-amount').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     el('calc-from').value = 'GBP'; el('calc-from').dispatchEvent(new Event('input', { bubbles: true }));
     check('quick converter names a missing rate instead of guessing', el('calc-result').textContent.includes('GBP'));
+    el('calc-amount').value = '-5'; el('calc-amount').dispatchEvent(new Event('input', { bubbles: true }));
     el('site-hint').value = ''; el('site-hint').dispatchEvent(new Event('input', { bubbles: true }));
     el('save').click(); await wait();
+    check('an invalid quick-convert amount never blocks saving settings', el('settings-form').checkValidity() && el('calc-result').textContent === '');
     check('clearing the site currency removes only this host', !('shop.example.com' in saved.siteHints));
     check('expanded settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     check('no runtime errors', errors.length === 0);

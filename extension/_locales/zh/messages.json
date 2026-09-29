@@ -179,7 +179,7 @@
     "message": "zh-CN"
   },
   "errTooManyHosts": {
-    "message": "最多暂停 200 个网站。请先恢复一些已暂停的网站。"
+    "message": "保存的网站太多（暂停的网站或网站币种）。请先删除一些。"
   },
   "errWiseNeedsToken": {
     "message": "使用 Wise 前请填写 API Token。"

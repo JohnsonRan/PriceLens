@@ -88,6 +88,7 @@ test("per-site currency and card fee: sanitized settings, precedence and cross-c
   assert.equal(C.manualHint(s, "shop.ca"), "CAD", "site choice wins");
   assert.equal(C.manualHint(s, "other.test"), "AUD", "else the global hint");
   assert.equal(C.manualHint(C.DEFAULTS, "shop.ca"), "");
+  for (const host of ["constructor", "toString", "__proto__"]) assert.equal(C.manualHint(s, host), "AUD", `${host}: inherited keys are not site hints`);
   assert.equal(C.findPrices("$10", C.manualHint(s, "shop.ca"))[0].currency, "CAD");
   const table = { rates: { USD: { rate: 0.125 } } };
   assert.equal(C.convert(10, "USD", table), 80);
@@ -136,7 +137,7 @@ function worker(settings = {}, localData = {}, options = {}) {
       permissions: { contains: async () => { await options.beforePermission?.(); return options.granted === true; } },
       tabs: { query: async () => [], sendMessage: async (tabId, message) => { if (options.noContentScript) throw new Error("no receiver"); shown.push(message); } },
       scripting: { executeScript: async ({ args }) => { alerts.push(args[0]); } },
-      contextMenus: { create(item) { menus.push(item); }, onClicked: { addListener(fn) { menuClick = fn; } } },
+      contextMenus: { removeAll(done) { menus.length = 0; done?.(); }, create(item) { menus.push(item); }, onClicked: { addListener(fn) { menuClick = fn; } } },
       storage: { sync: storage(sync, "sync"), local: storage(local, "local") },
       runtime: { id: "test", getURL: (path) => `chrome-extension://test/${path}`, onMessage: { addListener(fn) { listener = fn; } }, onInstalled: { addListener(fn) { installed = fn; } } },
     },
@@ -492,4 +493,17 @@ test("right-click selection converts locally with site hint and fee, never uploa
   const orphan = worker({}, {}, { noContentScript: true });
   assert.match(await orphan.menu("USD 10"), /USD 10 \(USD\) ≈ CNY\s?80\.00/, "falls back to an injected alert when no content script answers");
   assert.equal(orphan.alerts.length, 1);
+});
+
+test("site lists are bounded below the storage.sync per-item quota", async () => {
+  const long = (i) => `shop-${i}-${"x".repeat(40)}.example`;
+  const w = worker();
+  const hints = Object.fromEntries(Array.from({ length: 150 }, (_, i) => [long(i), "CAD"]));
+  const tooBig = await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, siteHints: hints }, token: null, jevKey: null });
+  assert.equal(tooBig.ok, false);
+  assert.match(tooBig.error, /网站太多/);
+  const hosts = await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, excludedHosts: Array.from({ length: 150 }, (_, i) => long(i)) }, token: null, jevKey: null });
+  assert.equal(hosts.ok, false);
+  assert.equal((await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, siteHints: { "shop.ca": "CAD" } }, token: null, jevKey: null })).ok, true);
+  assert.deepEqual(w.sync.siteHints, { "shop.ca": "CAD" });
 });

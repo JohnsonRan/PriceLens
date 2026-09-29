@@ -135,7 +135,8 @@ async function saveSettings(message) {
   const input = message.settings;
   if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error(t("errSettingsInvalid"));
   if (input.feePercent !== undefined && !(typeof input.feePercent === "number" && input.feePercent >= 0 && input.feePercent <= 10)) throw new Error(t("errFeeRange"));
-  if (input.excludedHosts.length > 200 || Object.keys(input.siteHints ?? {}).length > 200) throw new Error(t("errTooManyHosts"));
+  // storage.sync allows 8192 bytes per item; keep headroom so Chrome's raw quota error never reaches the user.
+  if ([input.excludedHosts, input.siteHints ?? {}].some((list) => Object.keys(list).length > 200 || JSON.stringify(list).length > 7000)) throw new Error(t("errTooManyHosts"));
   await localReady;
   const stored = await chrome.storage.local.get(["wiseToken", "jevKey"]);
   const token = message.token === null ? stored.wiseToken || "" : message.token;
@@ -189,8 +190,9 @@ async function convertSelection(text, pageUrl) {
   return lines.join("\n");
 }
 
+// removeAll first: on update the title (and its locale) is re-applied instead of failing on the existing id.
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({ id: "convert-selection", title: t("menuConvert"), contexts: ["selection"] }, () => void chrome.runtime.lastError);
+  chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: "convert-selection", title: t("menuConvert"), contexts: ["selection"] }, () => void chrome.runtime.lastError));
 });
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "convert-selection" || !tab?.id) return;

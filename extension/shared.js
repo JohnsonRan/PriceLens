@@ -135,8 +135,10 @@
     return typeof rate === "number" && Number.isFinite(rate) && rate > 0 ? amount / rate * (1 + feePercent / 100) : null;
   }
 
+  // Own keys only: a host named "constructor" must not read Object.prototype.
+  const siteHintFor = (settings, host) => Object.hasOwn(settings.siteHints ?? {}, host) ? settings.siteHints[host] : "";
   // Manual hint for a host: this site's choice, else the global one, else none.
-  const manualHint = (settings, host) => settings.siteHints?.[host] || settings.sourceHint || "";
+  const manualHint = (settings, host) => siteHintFor(settings, host) || settings.sourceHint || "";
 
   function pairSavings(input, choice) {
     const pair = typeof choice === "string" && /^([A-D])_REFERENCE_([A-D])_CURRENT$/.exec(choice);
@@ -226,7 +228,7 @@
     return new Intl.NumberFormat(uiLocale(), { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, manualHint, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
+  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

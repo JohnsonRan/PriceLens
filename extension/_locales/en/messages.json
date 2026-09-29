@@ -179,7 +179,7 @@
     "message": "en"
   },
   "errTooManyHosts": {
-    "message": "You can pause at most 200 sites. Resume some paused sites first."
+    "message": "Too many sites are saved (paused sites or site currencies). Remove some first."
   },
   "errWiseNeedsToken": {
     "message": "Enter an API token before using Wise."

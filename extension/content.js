@@ -315,7 +315,7 @@
   }
 
   function clear() {
-    closeDetails(false);
+    if (detailBadge) closeDetails(false); // A right-click result (no badge) is not page state; leave it open.
     revision++;
     for (const store of [records, savingsRecords]) for (const anchor of store.keys()) removeRecord(anchor, store);
     pending.clear();
