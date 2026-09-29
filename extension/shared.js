@@ -25,10 +25,10 @@
   const space = "[ \\t\\u00a0\\u202f]*";
   const number = "[+−-]?\\d(?:[\\d.,'’ \\u00a0\\u202f]*\\d)?";
   const cjk = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}]";
-  const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_])|(?=${cjk}))`, "gu");
+  const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_]|[.,'’]\\d)|(?=${cjk}))`, "gu");
 
   // Checkout, payment, account, login, order and cart paths: no AI upload and no reference-difference labels.
-  const SENSITIVE_PATH = /(?:checkout|payment|account|login|orders?|cart)(?:[/.?_-]|$)/i;
+  const SENSITIVE_PATH = /(?:checkouts?|payments?|accounts?|log-?in|sign-?in|orders?|carts?|basket)(?:[/.?_-]|$)/i;
   const isSensitivePath = (pathname) => SENSITIVE_PATH.test(pathname);
 
   function currencyFor(token, hint) {
@@ -60,8 +60,9 @@
     if (separators.length) {
       const groups = integer.split(separators[0]);
       // Accept international groups and Indian lakh/crore groups; reject malformed amounts.
-      const western = /^\d{1,3}$/.test(groups[0]) && groups.slice(1).every((g) => /^\d{3}$/.test(g));
-      const indian = /^\d{1,2}$/.test(groups[0]) && /^\d{3}$/.test(groups.at(-1)) && groups.slice(1, -1).every((g) => /^\d{2}$/.test(g));
+      // A leading 0 group ("0.125") is a 3-decimal amount, not thousands; skip it rather than misread it.
+      const western = /^[1-9]\d{0,2}$/.test(groups[0]) && groups.slice(1).every((g) => /^\d{3}$/.test(g));
+      const indian = /^[1-9]\d?$/.test(groups[0]) && /^\d{3}$/.test(groups.at(-1)) && groups.slice(1, -1).every((g) => /^\d{2}$/.test(g));
       if (!western && !indian) return null;
     }
     const result = sign * Number(integer.replace(/[^\d]/g, "") + (decimal ? `.${parts[1]}` : ""));

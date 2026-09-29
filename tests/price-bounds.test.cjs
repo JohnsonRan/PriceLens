@@ -45,8 +45,17 @@ test('schema.org sale markup yields exactly one reference/current pair per offer
 });
 
 test('sensitive paths are shared by AI and reference-difference guards', () => {
-  for (const path of ['/checkout', '/cart/', '/account/settings', '/orders/123', '/order.html', '/login?next=/', '/payment_method']) assert.equal(C.isSensitivePath(path), true, path);
+  for (const path of ['/checkout', '/cart/', '/account/settings', '/orders/123', '/order.html', '/login?next=/', '/payment_method', '/checkouts/c/abc', '/accounts', '/signin', '/sign-in', '/basket', '/#/checkout']) assert.equal(C.isSensitivePath(path), true, path);
   for (const path of ['/', '/products/cartridge-ink', '/accounting-books', '/category/shoes']) assert.equal(C.isSensitivePath(path), false, path);
+});
+
+test('amounts that would silently scale are skipped, not misread', () => {
+  for (const text of ['$0.125/oz', '€0,125', 'US$ 0.050', '$1.5M', '$2.5k', 'USD 19 99']) assert.deepEqual(C.findPrices(text, 'USD'), [], text);
+  for (const [text, amount] of [['$0.99', 0.99], ['0,99 €', 0.99], ['$5.00.', 5], ['€10,-', 10], ['$1,000,000', 1e6], ['USD 1 299', 1299]]) assert.equal(C.findPrices(text, 'USD')[0]?.amount, amount, text);
+});
+
+test('manifest and package versions match', () => {
+  assert.equal(require('../extension/manifest.json').version, require('../package.json').version);
 });
 
 test('JSON-LD offer currencies are collected only from offers and known codes', () => {

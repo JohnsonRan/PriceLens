@@ -79,6 +79,7 @@ $("settings-form").addEventListener("submit", async (event) => {
   controls();
   try {
     if ($("jev-enabled").checked && ($("clear-jev").checked || (!$("jev-key").value.trim() && !state.hasJevKey))) throw new Error(C.t("errJevKeyFirst"));
+    if ($("provider").value === "wise" && ($("clear-token").checked || (!$("token").value.trim() && !state.hasToken))) throw new Error(C.t("errWiseNeedsToken"));
     const origins = [];
     if ($("jev-enabled").checked) origins.push("https://api.typesafe.ai/*");
     if ($("provider").value === "wise") origins.push("https://api.wise.com/*");
@@ -118,7 +119,7 @@ $("refresh").addEventListener("click", async () => {
 
 (async () => {
   busy = true;
-  document.documentElement.lang = C.uiLocale();
+  document.documentElement.lang = C.t("htmlLang"); // The resolved locale pack, not the browser language.
   $("version").textContent = `v${chrome.runtime.getManifest().version}`;
   for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = C.t(el.dataset.i18n);
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = C.t(el.dataset.i18nPlaceholder);

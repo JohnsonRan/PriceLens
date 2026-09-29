@@ -1,7 +1,8 @@
 importScripts("shared.js", "jev.js");
 
 const { CURRENCIES, ECB_CURRENCIES, settingsFrom, isSensitivePath, t } = PriceLens;
-const localReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+// If a browser rejects this, keep working: only this extension's own content script could then read local storage.
+const localReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }).catch(() => {});
 const inFlight = new Map();
 const failures = new Map();
 let credentialRevision = 0;
@@ -23,7 +24,7 @@ async function inferJev(message, sender) {
   let url;
   try { url = new URL(sender.url); } catch { throw new Error(t("errJevPageOnly")); }
   if (!settings.enabled || !settings.jevEnabled || settings.excludedHosts.includes(url.hostname)) throw new Error(t("errJevOff"));
-  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname)) throw new Error(t("errAiSensitive"));
+  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname + url.hash)) throw new Error(t("errAiSensitive"));
   if (!await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] })) throw new Error(t("errJevPermission"));
   const { jevKey } = await chrome.storage.local.get("jevKey");
   if (!jevKey) throw new Error(t("errJevKeyMissing"));
@@ -60,7 +61,7 @@ async function request(url, headers = {}) {
     throw new Error(t("errRatesNetwork"));
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error(t("errWiseAuth"));
+    if ((response.status === 401 || response.status === 403) && headers.Authorization) throw new Error(t("errWiseAuth"));
     if (response.status === 429) throw new Error(t("errRatesLimited"));
     throw new Error(t("errRatesHttp", response.status));
   }
@@ -133,6 +134,7 @@ async function getRates(force = false) {
 async function saveSettings(message) {
   const input = message.settings;
   if (!input || !Object.hasOwn(CURRENCIES, input.target) || !["wise", "ecb"].includes(input.provider) || typeof input.enabled !== "boolean" || typeof input.savingsEnabled !== "boolean" || !(input.sourceHint === "" || Object.hasOwn(CURRENCIES, input.sourceHint)) || !Array.isArray(input.excludedHosts)) throw new Error(t("errSettingsInvalid"));
+  if (input.excludedHosts.length > 200) throw new Error(t("errTooManyHosts"));
   await localReady;
   const stored = await chrome.storage.local.get(["wiseToken", "jevKey"]);
   const token = message.token === null ? stored.wiseToken || "" : message.token;
@@ -142,6 +144,11 @@ async function saveSettings(message) {
   if (typeof token !== "string" || token.length > 4096 || /[^\x21-\x7e]/.test(token)) throw new Error(t("errTokenFormat"));
   if (input.provider === "wise" && !token) throw new Error(t("errWiseNeedsToken"));
   if (input.provider === "wise" && !await chrome.permissions.contains({ origins: ["https://api.wise.com/*"] })) throw new Error(t("errWiseNeedsPermission"));
+  // Write synced settings first: sync is the write that can fail (quota/rate), and must not leave AI consent half-applied.
+  const settings = settingsFrom(input);
+  const { jevEnabled, ...synced } = settings;
+  await chrome.storage.sync.remove("jevSavingsEnabled");
+  await chrome.storage.sync.set(synced);
   if (token !== (stored.wiseToken || "")) {
     credentialRevision++;
     failures.clear();
@@ -151,14 +158,10 @@ async function saveSettings(message) {
     if (token) await chrome.storage.local.set({ wiseToken: token });
     else await chrome.storage.local.remove("wiseToken");
   }
-  const settings = settingsFrom(input);
-  await chrome.storage.local.set({ jevEnabled: settings.jevEnabled });
+  await chrome.storage.local.set({ jevEnabled });
   await chrome.storage.local.remove("jevSavingsEnabled"); // Retired 0.1 experiment flag.
   if (jevKey) await chrome.storage.local.set({ jevKey });
   else await chrome.storage.local.remove("jevKey");
-  const { jevEnabled, ...synced } = settings;
-  await chrome.storage.sync.remove("jevSavingsEnabled");
-  await chrome.storage.sync.set(synced);
   // AI consent is device-local, so notify tabs explicitly instead of relying on sync events.
   chrome.tabs.query({}).then((tabs) => Promise.allSettled(tabs.map((tab) => chrome.tabs.sendMessage(tab.id, { type: "refresh", resetJev: true })))).catch(() => {});
   return { settings, hasToken: Boolean(token), hasJevKey: Boolean(jevKey), jevStatus: PriceLensJev.getStatus() };

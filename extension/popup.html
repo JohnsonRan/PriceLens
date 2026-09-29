@@ -43,10 +43,10 @@
           <label class="check-row"><input id="savings-enabled" type="checkbox" aria-describedby="savings-hint"><span data-i18n="labelSavings">显示参考标价差</span></label>
           <p id="savings-hint" class="hint" data-i18n="hintSavings">原价减现价。只用页面标注的原价或划线价，在本地计算，不发送网页内容。</p>
           <details id="ai-settings">
-            <summary><span data-i18n="summaryAi">AI 辅助</span> <span id="jev-state">· 关闭</span></summary>
+            <summary><span data-i18n="summaryAi">AI 辅助</span> <span id="jev-state" data-i18n="stateOff">· 关闭</span></summary>
             <p id="ai-consent" class="hint consent"><span data-i18n="aiConsent">开启后，会在未暂停的网站自动向 TypeSafe 发送价格和附近文字（每项最多 360 字符），用于币种识别。可能收费；不发送整页，片段仍可能含私人或敏感信息，请勿在敏感页面启用。</span><a href="https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md" target="_blank" rel="noreferrer" data-i18n="linkPrivacyNote">隐私说明 ↗</a></p>
             <label class="check-row"><input id="jev-enabled" type="checkbox" aria-describedby="ai-consent"><span data-i18n="labelJevEnabled">启用 AI，并同意上述发送</span></label>
-            <label for="jev-key">TypeSafe Key <a href="https://console.typesafe.ai/" target="_blank" rel="noreferrer" data-i18n="linkGet">获取 ↗</a></label>
+            <a id="jev-key-link" href="https://console.typesafe.ai/" target="_blank" rel="noreferrer" data-i18n="linkGet">获取 ↗</a><label for="jev-key">TypeSafe Key</label>
             <input id="jev-key" type="password" autocomplete="off" spellcheck="false" maxlength="4096" placeholder="仅保存在本机" data-i18n-placeholder="placeholderLocalOnly">
             <label class="check-row" id="clear-jev-row"><input id="clear-jev" type="checkbox"><span data-i18n="clearJev">清除 Key（先关闭 AI）</span></label>
           </details>

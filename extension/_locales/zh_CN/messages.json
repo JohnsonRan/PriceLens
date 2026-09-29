@@ -175,6 +175,12 @@
   "errTokenFormat": {
     "message": "Token 格式无效，请勿输入空格或换行。"
   },
+  "htmlLang": {
+    "message": "zh-CN"
+  },
+  "errTooManyHosts": {
+    "message": "最多暂停 200 个网站。请先恢复一些已暂停的网站。"
+  },
   "errWiseNeedsToken": {
     "message": "使用 Wise 前请填写 API Token。"
   },

@@ -145,7 +145,7 @@
 
   function aiContext(anchor, original) {
     let el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
-    if (!el || el === document.body || el.closest(`${SKIP},form,[role="form"]`) || C.isSensitivePath(location.pathname)) return null;
+    if (!el || el === document.body || el.closest(`${SKIP},form,[role="form"]`) || C.isSensitivePath(location.pathname + location.hash)) return null;
     let result = null;
     for (let depth = 0; depth <= 3; depth++) {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
@@ -220,7 +220,9 @@
     let text = "";
     for (const child of node.childNodes) {
       if (child.nodeType === Node.ELEMENT_NODE && child.matches(includeMirrors ? TEXT_SKIP : SKIP)) continue;
-      text += textOf(child, visibleOnly, includeMirrors);
+      const part = textOf(child, visibleOnly, includeMirrors);
+      // Digits split across elements ("19" + styled "99") are not one number; a space makes them unparseable instead of 1999.
+      text += child.nodeType === Node.ELEMENT_NODE && /\d$/.test(text) && /^\d/.test(part) ? ` ${part}` : part;
       if (text.length > 160) break;
     }
     return text;
@@ -777,7 +779,7 @@
   }
 
   function scanSavings(roots) {
-    const active = settings.savingsEnabled && !C.isSensitivePath(location.pathname);
+    const active = settings.savingsEnabled && !C.isSensitivePath(location.pathname + location.hash);
     for (const scope of savingsRecords.keys()) if (!scope.isConnected || !active) removeRecord(scope, savingsRecords);
     if (!active) return;
     const scopes = new Set();
@@ -910,6 +912,10 @@
   const observer = new MutationObserver((mutations) => {
     if (!table) return;
     for (const mutation of mutations) {
+      // Pages that clone converted markup (carousels, virtual lists) copy our badges; drop copies we do not track.
+      for (const node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const badge of [node, ...node.querySelectorAll(".pricelens-price[data-pricelens]")]) if (badge.matches(".pricelens-price[data-pricelens]") && !badgeAnchors.has(badge)) badge.remove();
+      }
       const element = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
       if (element?.closest(`[${MARK}]`)) continue;
       const changed = [...mutation.addedNodes, ...mutation.removedNodes];

@@ -1,9 +1,9 @@
 // Injected before the actual popup scripts: real DOM/CSS, isolated mock Chrome APIs, no live credentials/network.
-let saved, granted = true;
+let saved, granted = true, hasToken = false;
 const messages = [], permissions = [], errors = [];
 window.addEventListener('error', (event) => errors.push(event.message));
 window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
-const response = () => ({ ok: true, settings: { ...saved }, hasToken: false, hasJevKey: true, jevStatus: { state: 'idle', message: '尚未调用模型' } });
+const response = () => ({ ok: true, settings: { ...saved }, hasToken, hasJevKey: true, jevStatus: { state: 'idle', message: '尚未调用模型' } });
 globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after this script in the popup head
   permissions: { request: async (options) => { permissions.push(options); return granted; } },
   tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async () => {} },
@@ -11,7 +11,7 @@ globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after t
     messages.push(message);
     saved ||= { ...PriceLens.DEFAULTS, jevEnabled: true };
     if (message.type === 'getState') return response();
-    if (message.type === 'saveSettings') { saved = { ...message.settings }; return response(); }
+    if (message.type === 'saveSettings') { saved = { ...message.settings }; if (message.token !== null) hasToken = Boolean(message.token); return response(); }
     if (message.type === 'getRates') return { ok: true, table: { provider: saved.provider, target: saved.target, rates: { USD: { rate: 0.14, asOf: '2026-09-22' } }, fetchedAt: Date.now(), stale: false } };
     throw new Error('Unexpected mock request');
   } },
@@ -76,6 +76,9 @@ window.addEventListener('load', async () => {
     check('local reference difference saves independently of AI', saved.savingsEnabled === false && saved.jevEnabled && saved.provider === 'wise');
     el('savings-enabled').click(); el('save').click(); await wait();
     check('local reference difference can be re-enabled', saved.savingsEnabled === true);
+    const promptsBefore = permissions.length, savesBefore = messages.filter((m) => m.type === 'saveSettings').length;
+    el('clear-token').click(); el('save').click(); await wait();
+    check('Wise without a token fails before any permission prompt', permissions.length === promptsBefore && messages.filter((m) => m.type === 'saveSettings').length === savesBefore && el('notice').dataset.error === 'true');
     check('expanded settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     check('no runtime errors', errors.length === 0);
     report.completed = true;

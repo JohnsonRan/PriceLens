@@ -84,7 +84,7 @@ summary { cursor: pointer; font-size: 13px; }
 #token { margin-top: 10px; }
 #ai-settings { margin: 12px 0 0; }
 #ai-settings label[for="jev-key"] { margin-top: 14px; }
-#ai-settings label[for="jev-key"] a { float: right; font-size: 11px; font-weight: 400; }
+#jev-key-link { float: right; margin-top: 14px; font-size: 11px; font-weight: 400; } /* Outside the label so the input's name stays "TypeSafe Key". */
 #clear-jev-row { font-size: 12px; margin-top: 9px; }
 .check-row { display: flex; align-items: flex-start; gap: 7px; min-height: 24px; font-size: 12px; line-height: 1.5; }
 .check-row input { margin: 2px 0 0; accent-color: var(--switch-on); width: 15px; height: 15px; flex-shrink: 0; }

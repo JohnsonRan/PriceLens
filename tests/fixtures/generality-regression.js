@@ -25,6 +25,9 @@ window.addEventListener('load', async () => {
     for (const id of ['hidden-tail', 'css-tail', 'transparent-tail', 'aria-tail']) {
       check(id + ': invisible digits cannot change the amount', badges(id).length === 1 && amounts(id)[0].includes('80.00'), amounts(id));
     }
+    check('styled cents without <sup> are never read as whole units', !amounts('split-cents').some(t => t.includes('15,992')), amounts('split-cents'));
+    el('carousel').append(el('carousel').firstElementChild.cloneNode(true)); await wait();
+    check('cloned slides keep exactly one tracked badge each', [...el('carousel').children].every(slide => slide.querySelectorAll('[data-pricelens]').length === 1) && amounts('carousel').length === 2, amounts('carousel'));
     check('superscript cents join the amount', amounts('sup-cents').length === 1 && amounts('sup-cents')[0].includes('159.92'), amounts('sup-cents'));
     check('superscript currency mark and cents join the amount', amounts('sup-symbol').length === 1 && amounts('sup-symbol')[0].includes('60.00'), amounts('sup-symbol'));
     check('dot-thousands amount takes superscript cents as a comma decimal', amounts('sup-euro').length === 1 && amounts('sup-euro')[0].includes('12,999.00'), amounts('sup-euro'));
