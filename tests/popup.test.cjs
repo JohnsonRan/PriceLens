@@ -13,12 +13,13 @@ async function popup(settings = {}, jevStatus = { state: "idle", message: "尚�
       add(option) { this.options.push(option); },
       addEventListener(type, listener) { this.listeners[type] = listener; },
     });
+    if (id === "settings-form" && !("elements" in elements.get(id))) Object.defineProperty(elements.get(id), "elements", { get: () => "enabled target pause-site provider token clear-token source-hint site-hint fee savings-enabled jev-enabled jev-key clear-jev".split(" ").map((key) => Object.assign(element(key), { type: /enabled|pause|clear/.test(key) ? "checkbox" : "text" })) });
     return elements.get(id);
   };
   let saved = { ...C.DEFAULTS, ...settings };
   const response = () => ({ ok: true, settings: { ...saved }, hasToken: false, hasJevKey: true, jevStatus });
   const context = vm.createContext({
-    PriceLens: C, console, URL, Date,
+    PriceLens: C, console, URL, Date, setTimeout, clearTimeout,
     Option: class { constructor(text, value) { Object.assign(this, { text, value }); } },
     document: { getElementById: element, querySelector: element, querySelectorAll: () => [], documentElement: {} },
     chrome: {
@@ -69,8 +70,15 @@ test("recognition description follows saved settings, manual hints never overrid
 test("pending preferences and failed initialization never signal success", async () => {
   const changed = await popup();
   changed("settings-form").listeners.input();
+  assert.equal(changed("save").disabled, true, "an input event without a value change is not unsaved");
+  changed("enabled").checked = !changed("enabled").checked;
+  changed("settings-form").listeners.input();
   assert.equal(changed("notice").dataset.tone, "pending");
   assert.match(changed("notice").textContent, /未保存/);
+  changed("enabled").checked = !changed("enabled").checked;
+  changed("settings-form").listeners.input();
+  assert.equal(changed("save").disabled, true, "changing a setting back is clean again");
+  assert.equal(changed("notice").textContent, "", "and the unsaved notice goes away");
   const failed = await popup({}, undefined, true, true);
   assert.equal(failed(".rate-status").dataset.warning, "true");
   assert.equal(failed("status-title").textContent, "插件连接失败");

@@ -11,11 +11,12 @@
   --pl-cache-border: #e2bb70;
   color-scheme: light;
   display: inline-block;
+  position: relative;
   margin-inline-start: 0.4em;
-  padding: 2px 5px 2px 10px;
+  padding: 2px 4px 2px 11px;
   border: 1px solid var(--pl-border);
   border-radius: 10px 4px 4px 10px;
-  background: radial-gradient(circle at 5.5px 50%, var(--pl-border) 2px, transparent 2.5px) no-repeat, var(--pl-bg);
+  background: var(--pl-bg);
   color: var(--pl-text);
   font: 600 12px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-variant-numeric: tabular-nums;
@@ -24,10 +25,25 @@
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+/* The tag hole: a real 4px box (not a gradient), pixel-snapped and centred in the rounded tag end at any zoom.
+   Absolutely positioned so it never enters text flow (the label's leading space still collapses: same width as before). */
+.pricelens-price[data-pricelens]::before {
+  all: initial;
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--pl-border);
+}
+.pricelens-price[data-pricelens][data-stale="true"]::before { background: var(--pl-cache-border); }
 .pricelens-price[data-pricelens]:hover { border-color: currentColor; box-shadow: 0 1px 3px rgb(0 0 0 / 15%); }
 .pricelens-price[data-pricelens]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .pricelens-price[data-pricelens][data-stale="true"] {
-  background: radial-gradient(circle at 5.5px 50%, var(--pl-cache-border) 2px, transparent 2.5px) no-repeat, var(--pl-cache-bg);
+  background: var(--pl-cache-bg);
   border-color: var(--pl-cache-border);
   border-style: dashed;
   color: var(--pl-cache-text);

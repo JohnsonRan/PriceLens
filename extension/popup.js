@@ -4,6 +4,10 @@ let state;
 let activeTab;
 let hostname = "";
 let dirty = false;
+let baseline = ""; // Settings form values as last loaded or saved.
+let noticeTimer;
+// Dirty means "differs from what is saved", so changing a setting and changing it back is clean again.
+const formState = () => JSON.stringify([...($("settings-form").elements ?? [])].filter((el) => el.type !== "submit" && el.type !== "button").map((el) => el.type === "checkbox" ? el.checked : el.value));
 let busy = false;
 let rates = null; // Last loaded table, for the quick converter.
 
@@ -14,9 +18,12 @@ async function request(message) {
 }
 
 function notice(text, error = false, tone = "success") {
+  clearTimeout(noticeTimer);
   $("notice").textContent = text;
   $("notice").dataset.error = String(error);
   $("notice").dataset.tone = error ? "error" : tone;
+  // A success message is a confirmation, not state: let it (and the save bar) go away.
+  if (text && !error && tone === "success") noticeTimer = setTimeout(() => { if (!dirty) notice(""); }, 2500);
 }
 
 function controls() {
@@ -92,7 +99,12 @@ async function showRates(force = false) {
 // The quick converter lives in the form for layout only; it never makes settings dirty or submits them.
 $("calc-amount").addEventListener("keydown", (event) => { if (event.key === "Enter") event.preventDefault(); });
 for (const id of ["calc-amount", "calc-from"]) $(id).addEventListener("input", (event) => { event.stopPropagation(); calc(); });
-$("settings-form").addEventListener("input", () => { dirty = true; notice(C.t("noticeUnsaved"), false, "pending"); controls(); });
+$("settings-form").addEventListener("input", () => {
+  dirty = formState() !== baseline;
+  if (dirty) notice(C.t("noticeUnsaved"), false, "pending");
+  else if ($("notice").dataset.tone === "pending") notice("");
+  controls();
+});
 $("provider").addEventListener("change", providerUI);
 $("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -127,6 +139,7 @@ $("settings-form").addEventListener("submit", async (event) => {
     dirty = false;
     providerUI();
     aiUI();
+    baseline = formState();
     notice(C.t("noticeSaved"));
     await showRates();
     await notifyPage();
@@ -176,6 +189,7 @@ $("refresh").addEventListener("click", async () => {
     $("site-name").textContent = hostname || C.t("siteBuiltin");
     providerUI();
     aiUI();
+    baseline = formState();
     await showRates();
   } catch (error) {
     notice(error.message, true);

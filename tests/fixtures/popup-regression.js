@@ -51,6 +51,12 @@ window.addEventListener('load', async () => {
     check('unsaved preferences use pending rather than success feedback', el('notice').dataset.tone === 'pending');
     el('save').click(); await wait();
     check('AI opt-out saves without requesting permission', !saved.jevEnabled && permissions.length === 0 && el('notice').textContent.includes('已保存') && el('save').disabled);
+    await new Promise((resolve) => setTimeout(resolve, 2700));
+    check('the saved confirmation fades and the save bar hides', el('notice').textContent === '' && getComputedStyle(document.querySelector('.save-area')).display === 'none');
+    el('enabled').click(); await wait();
+    check('a changed setting shows the unsaved bar', !el('save').disabled && el('notice').textContent.includes('未保存') && getComputedStyle(document.querySelector('.save-area')).display !== 'none');
+    el('enabled').click(); await wait();
+    check('changing it back clears the unsaved state and hides the bar', el('save').disabled && el('notice').textContent === '' && getComputedStyle(document.querySelector('.save-area')).display === 'none');
     el('jev-enabled').click(); el('save').click(); await wait();
     check('AI opt-in asks only its optional service permission', saved.jevEnabled && permissions.length === 1 && JSON.stringify(permissions[0].origins) === JSON.stringify(['https://api.typesafe.ai/*']));
     el('jev-enabled').click(); el('save').click(); await wait();
