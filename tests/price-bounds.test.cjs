@@ -58,6 +58,13 @@ test('manifest and package versions match', () => {
   assert.equal(require('../extension/manifest.json').version, require('../package.json').version);
 });
 
+test('locale packs stay in sync', () => {
+  const pack = (l) => require(`../extension/_locales/${l}/messages.json`);
+  assert.equal(require('../extension/manifest.json').default_locale, 'en');
+  assert.deepEqual(Object.keys(pack('en')).sort(), Object.keys(pack('zh_CN')).sort());
+  assert.deepEqual(pack('zh'), pack('zh_CN'), 'zh (zh-TW/zh-HK fallback) is a copy of zh_CN');
+});
+
 test('JSON-LD offer currencies are collected only from offers and known codes', () => {
   const list = (data) => [...C.structuredCurrencies(data)].sort();
   assert.deepEqual(list({ '@graph': [{ '@type': 'Product', offers: { '@type': 'AggregateOffer', lowPrice: 1, priceCurrency: 'CAD' } }] }), ['CAD']);

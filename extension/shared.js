@@ -5,7 +5,7 @@
   // and 3-decimal currencies (KWD, BHD, OMR, JOD, TND), whose "12.500" parseAmount would read as thousands.
   const CODES = ("CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB " +
     "ARS CLP EGP PKR NGN KZT UAH QAR BDT KES LKR").split(" ");
-  // UI text comes from _locales via chrome.i18n (zh_CN is the default locale).
+  // UI text comes from _locales via chrome.i18n: en is the default, zh is the fallback for zh-TW/zh-HK.
   const t = (key, ...subs) => globalThis.chrome?.i18n?.getMessage(key, subs.map(String)) || key;
   const uiLocale = () => globalThis.chrome?.i18n?.getUILanguage?.() || "zh-CN";
   const currencyName = (code, locale = uiLocale()) => new Intl.DisplayNames([locale], { type: "currency" }).of(code);
