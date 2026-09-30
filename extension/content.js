@@ -567,7 +567,24 @@
       const rect = badge.getBoundingClientRect(), bounds = parent.getBoundingClientRect();
       return rect.left >= Math.max(0, bounds.left) - 1 && rect.right <= Math.min(document.documentElement.clientWidth, bounds.right) + 1 && fits(badge) && Math.abs(after.height - before.height) <= 1 && Math.abs(after.width - before.width) <= scrollbarDelta + 1 && preservesFlow(flow, badge, scrollbarDelta);
     };
-    if (position && safe()) return position;
+    // A badge wrapped onto its own line needs no gap from the text before it; in a column exactly as wide as the
+    // badge (Apple's right-aligned model selectors) that gap alone pushes it out of bounds.
+    const startsLine = () => {
+      const range = document.createRange();
+      range.setStart(badge.parentNode, 0);
+      range.setEndBefore(badge);
+      const last = [...range.getClientRects()].filter((rect) => rect.width && rect.height).at(-1);
+      return !last || last.bottom <= badge.getBoundingClientRect().top + 1;
+    };
+    const placedSafely = () => {
+      badge.style.removeProperty("margin-inline-start");
+      if (safe()) return true;
+      badge.style.marginInlineStart = "0";
+      if (startsLine() && safe()) return true;
+      badge.style.removeProperty("margin-inline-start");
+      return false;
+    };
+    if (position && placedSafely()) return position;
     badge.remove();
     let target = previous;
     if (previous === anchor) {
@@ -589,7 +606,7 @@
         insertion = next;
       }
       insertion.after(badge);
-      if (safe()) return target;
+      if (placedSafely()) return target;
       badge.remove();
       // On fallback, step past inline wrappers to keep their words and price qualifiers together.
       while (target.parentElement && target.parentElement !== document.body && ["inline", "contents"].includes(getComputedStyle(target.parentElement).display)) target = target.parentElement;

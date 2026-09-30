@@ -3,6 +3,14 @@ const listeners = [], errors = [];
 const settings = { ...PriceLens.DEFAULTS };
 const quote = rate => ({ rate, asOf: new Date().toISOString() });
 const table = { provider: 'ecb', target: 'CNY', fetchedAt: Date.now(), stale: false, rates: { USD: quote(.125), CAD: quote(.25), EUR: quote(.1) } };
+// Apple-style right column exactly as wide as the badge: it fits on its own line only without its leading gap.
+{
+  const probe = Object.assign(document.createElement('button'), { className: 'pricelens-price', textContent: ` ≈ ${PriceLens.formatMoney(29980 / .125, 'CNY')}` });
+  probe.setAttribute('data-pricelens', '');
+  document.getElementById('narrow-col').append(probe);
+  document.getElementById('narrow-col').style.width = Math.ceil(probe.getBoundingClientRect().width) + 1 + 'px';
+  probe.remove();
+}
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
 window.chrome = { i18n: window.PL_I18N, runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings: { ...settings } } : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
@@ -35,6 +43,11 @@ window.addEventListener('load', async () => {
     check('a unit exponent never becomes cents', amounts('sup-unit').length === 1 && amounts('sup-unit')[0].includes('96.00'), amounts('sup-unit'));
     check('range upper endpoint remains positive', badges('range').length === 2 && amounts('range')[1].includes('200.00') && !amounts('range')[1].includes('-'), amounts('range'));
     check('explicit negative amount after currency is preserved', amounts('signed').some(t => t.includes('-CNY') && t.includes('160.00')), amounts('signed'));
+    {
+      const column = el('narrow-col').getBoundingClientRect(), tag = badges('narrow-col')[0]?.getBoundingClientRect();
+      check('a badge wrapped into a column exactly its width drops its leading gap instead of disappearing', tag && tag.left >= column.left - 1 && tag.right <= column.right + 1 && amounts('narrow-col')[0].includes('239,840.00'), amounts('narrow-col'));
+      check('a badge beside its price on the same line keeps its gap', parseFloat(getComputedStyle(badges('known')[0]).marginInlineStart) > 0, getComputedStyle(badges('known')[0]).marginInlineStart);
+    }
     const controls = [...document.querySelectorAll('.pricelens-price[data-pricelens]')];
     check('price annotations use native buttons with exactly one Tab entry', controls.every(b => b.tagName === 'BUTTON' && b.type === 'button' && b.getAttribute('aria-haspopup') === 'dialog') && controls.filter(b => b.tabIndex === 0).length === 1);
     controls[0].focus();
