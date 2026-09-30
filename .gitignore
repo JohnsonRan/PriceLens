@@ -2,18 +2,6 @@
 .local-release/
 node_modules/
 dist/
-# Publish store listing, screenshots, icon source and packaging; keep submission notes and legacy tooling private.
-store/*
-!store/LISTING.*.md
-!store/package.ps1
-!store/assets/
-store/assets/*
-!store/assets/icon-source.png
-!store/assets/[0-9]*/
-store/assets/[0-9]*/*
-!store/assets/[0-9]*/en/
-!store/assets/[0-9]*/zh/
-!store/assets/[0-9]*/promo-*.png
 # Publish only product regressions; keep demos, paid pilots and local tooling private.
 tests/*
 !tests/core.test.cjs

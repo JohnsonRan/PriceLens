@@ -6,7 +6,7 @@ Shopping on a foreign site? PriceLens keeps the original price and shows it in y
 
 Works in Chrome and Edge. Everyday conversion needs no account and no API key. The interface is in Chinese for Chinese browsers (Simplified or Traditional) and in English for every other language.
 
-<img src="store/assets/0.3.0/en/01-prices.png" alt="PriceLens price tags on a shopping page" width="640">
+<img src="store/en/01-prices.png" alt="PriceLens price tags on a shopping page" width="640">
 
 ## Install
 
@@ -60,5 +60,5 @@ Every push and pull request runs the whole suite on GitHub Actions (Ubuntu with 
 
 - The suite covers the product regressions listed in `package.json`. It uses fake credentials, mocked network and throwaway browser profiles, and never calls a paid service.
 - DOM tests need Chromium or Chrome. Point `CHROME_BIN` at an executable, or they will look for an installed Playwright Chromium headless shell on Windows or Linux. Without a browser they are skipped explicitly. **Passing logic tests alone is not a browser verification.**
-- Store listing text and images are in `store/`. `powershell -NoProfile -File store/package.ps1` (Windows) renders the icons from `store/assets/icon-source.png` and builds `dist/pricelens-<version>.zip` from a fixed file list.
+- Store listing text and images are in `store/` (see `store/LISTING.en.md`). `node store/render-screenshots.cjs` regenerates the screenshots and promo tiles from the real extension UI with mocked APIs and fixed sample rates; it needs full Chromium, like the MV3 smoke test. `powershell -NoProfile -File store/package.ps1` (Windows) renders the icons from `store/icon-source.png` and builds `dist/pricelens-<version>.zip` from a fixed file list.
 - The real MV3 smoke test needs full Chromium (not the headless shell). Set `MV3_CHROME_BIN` or install Playwright Chromium. It loads the actual extension in a temporary profile with synthetic cached rates and blocked outbound requests. It checks worker messaging, saving settings, toggling pages, right-click results, the quick converter and Enter/Escape. It does not exercise live services, permission prompts or long-term worker eviction.

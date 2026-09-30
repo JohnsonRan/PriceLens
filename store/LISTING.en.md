@@ -3,12 +3,23 @@
 ## Basics
 
 - Name: **PriceLens** (extName resolves to "PriceLens" in `en` and "价译 · PriceLens" in `zh_CN`)
-- Version: **0.3.1**
 - Default language: English (`default_locale: en`). Keep the Simplified Chinese listing from `LISTING.zh-CN.md`, and fill in both in the dashboard.
 - Category: Shopping
 - Website: https://github.com/JohnsonRan/PriceLens
 - Support: https://github.com/JohnsonRan/PriceLens/issues
 - Privacy policy: https://github.com/JohnsonRan/PriceLens/blob/main/PRIVACY.md (English; the Chinese version is at `PRIVACY.zh-CN.md`)
+- Package: upload `dist/pricelens-<version>.zip` from `store/package.ps1`.
+
+## Images
+
+| Field | File |
+| --- | --- |
+| Store icon (128×128) | `extension/icons/icon128.png` (inside the ZIP) |
+| Screenshots (1280×800, in order) | `store/<locale>/01-prices.png` … `05-settings.png` |
+| Small promo tile (440×280) | `store/<locale>/promo-small-440x280.png` |
+| Marquee promo tile (1400×560) | `store/<locale>/promo-marquee-1400x560.png` |
+
+`<locale>` is `en` (default) or `zh_CN`. Each screenshot field takes at most 5 images, so keep the two languages in separate fields. Every image is a 24-bit RGB PNG without alpha, rendered by `store/render-screenshots.cjs` from the real extension UI with demo stores and fixed sample rates.
 
 ## Short description (manifest, ≤132 characters)
 

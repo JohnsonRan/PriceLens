@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $extension = Join-Path $root 'extension'
-$source = Join-Path $PSScriptRoot 'assets/icon-source.png'
+$source = Join-Path $PSScriptRoot 'icon-source.png'
 if (!(Test-Path -LiteralPath $source)) { throw "Missing generated PNG: $source. No ZIP was created." }
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression
@@ -25,7 +25,6 @@ try {
         } finally { $graphics.Dispose(); $bitmap.Dispose() }
     }
 } finally { $image.Dispose() }
-Copy-Item -LiteralPath (Join-Path $extension 'icons/icon128.png') -Destination (Join-Path $PSScriptRoot 'assets/icon128.png') -Force
 $manifestPath = Join-Path $extension 'manifest.json'
 $manifest = [System.IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
 if ($manifest.manifest_version -ne 3 -or $manifest.version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') { throw 'Unexpected manifest version.' }
