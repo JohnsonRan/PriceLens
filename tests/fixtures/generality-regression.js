@@ -80,7 +80,7 @@ window.addEventListener('load', async () => {
       check('clicking the label follows the host link instead of opening details', linkClicks === 1 && prevented === false && !document.querySelector('dialog.pricelens-details'));
     }
     check('prices with no room beside them in a tight flex/grid card get no tag', badges('unplaced-grid').length === 0, amounts('unplaced-grid'));
-    check('a shrink-to-fit price box may widen into free space beside it (Yahoo! Fleamarket shape)', badges('shrink-row').length === 1, amounts('shrink-row'));
+    check('a shrink-to-fit price box may widen into free space beside it, even where the tag is taller than the line (Yahoo! Fleamarket shape)', badges('shrink-row').length === 1, amounts('shrink-row'));
     check('but not when widening it would push a neighbouring item', badges('shrink-neighbour').length === 0, amounts('shrink-neighbour'));
     check('plain labels exist only inside host controls and never take focus', [...document.querySelectorAll('span.pricelens-price[data-pricelens]')].every((s) => s.parentElement.closest('a[href],button') && !s.hasAttribute('tabindex')));
     check('initial local metadata converts', amounts('dynamic').some(t => t.includes('80.00')), amounts('dynamic'));

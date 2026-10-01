@@ -576,17 +576,21 @@
     return { scope, box: scope.getBoundingClientRect(), lines, outer };
   }
 
-  // The scope only grew to the right, and so did each ancestor up to one that kept its box, whose other children did
-  // not move: the tag took free space beside a shrink-to-fit price box and pushed nothing.
+  // The scope only grew to the right, and so did each ancestor up to one that kept its width, whose other children did
+  // not move sideways: the tag took free space beside a shrink-to-fit price box and pushed nothing along. As in
+  // preservesFlow, the line may grow by up to the tag's height (small fonts), moving what follows down by as much.
   function grewIntoFreeSpace({ scope, box, outer }, badge) {
+    const grow = badge.getBoundingClientRect().height;
     const same = (a, b, sides) => sides.every((side) => Math.abs(a[side] - b[side]) <= 1);
-    const widened = (a, b) => same(a, b, ["left", "top", "height"]) && b.width > a.width;
+    const taller = (a, b) => b.height >= a.height - 1 && b.height <= a.height + grow;
+    const widened = (a, b) => same(a, b, ["left", "top"]) && taller(a, b) && b.width > a.width;
+    const unmoved = (a, b) => same(a, b, ["left", "width"]) && taller(a, b) && b.top >= a.top - 1 && b.top <= a.top + grow;
     if (!widened(box, scope.getBoundingClientRect())) return false;
     let child = scope;
     for (const { el, box: before, kids } of outer) {
       const now = el.getBoundingClientRect();
-      if (same(before, now, ["left", "top", "width", "height"])) {
-        return kids.every(([kid, rect]) => kid === badge || (kid === child ? widened(rect, kid.getBoundingClientRect()) : same(rect, kid.getBoundingClientRect(), ["left", "top", "width", "height"])));
+      if (unmoved(before, now)) {
+        return kids.every(([kid, rect]) => kid === badge || (kid === child ? widened : unmoved)(rect, kid.getBoundingClientRect()));
       }
       if (!widened(before, now)) return false;
       child = el;
