@@ -4,13 +4,15 @@ let saved, granted = true, hasToken = false;
 // pageStatus replies: the page is still scanning at first, then settles; later tests change the settled reply.
 const settledStatus = { ok: true, active: true, skipped: 5, symbols: ['$', '¥'], pending: false };
 const statusReplies = [{ ...settledStatus, skipped: 0, pending: true }];
+// Retries after the first pending reply wait here, so the scanning-state check cannot race a slow `load` event.
+let settleScan; const scanGate = new Promise((resolve) => { settleScan = resolve; });
 const messages = [], permissions = [], errors = [];
 window.addEventListener('error', (event) => errors.push(event.message));
 window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
 const response = () => ({ ok: true, settings: { ...saved }, hasToken, hasJevKey: true, jevStatus: { state: 'idle', message: '尚未调用模型' } });
 globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after this script in the popup head
   permissions: { request: async (options) => { permissions.push(options); return granted; } },
-  tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async (id, message, options) => { tabMessages.push([message, options]); return message.type === 'pageStatus' ? statusReplies.shift() ?? { ...settledStatus } : undefined; } },
+  tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async (id, message, options) => { tabMessages.push([message, options]); if (message.type !== 'pageStatus') return; if (tabMessages.filter(([m]) => m.type === 'pageStatus').length > 1) await scanGate; return statusReplies.shift() ?? { ...settledStatus }; } },
   runtime: { getManifest: () => ({ version: '9.8.7' }), sendMessage: async (message) => {
     messages.push(message);
     saved ||= { ...PriceLens.DEFAULTS, jevEnabled: true };
@@ -29,6 +31,7 @@ window.addEventListener('load', async () => {
     await wait();
     const view = new URL(location.href).searchParams.get('view');
     if (view) {
+      settleScan();
       if (view === 'ai') { el('advanced-settings').open = true; el('ai-settings').open = true; await wait(); el('ai-settings').scrollIntoView({ block: 'start' }); }
       return; // Screenshot mode does not exercise or mutate saved mock settings.
     }
@@ -40,6 +43,7 @@ window.addEventListener('load', async () => {
     check('all secondary panels stay collapsed even with AI already enabled', [...document.querySelectorAll('details')].every((node) => !node.open));
     check('daily controls remain visible, AI/credentials/diagnostics do not', ['target', 'enabled', 'pause-site', 'status-title'].every((id) => el(id).checkVisibility()) && ['provider', 'jev-enabled', 'jev-key', 'jev-status', 'status-detail'].every((id) => !el(id).checkVisibility()));
     check('settings stay usable while the page is still scanning', el('skip-notice').hidden && !el('refresh').disabled);
+    settleScan();
     await new Promise((resolve) => setTimeout(resolve, 300));
     check('a page that reports a pending scan is asked again until it settles', tabMessages.filter(([m]) => m.type === 'pageStatus').length === 2, tabMessages.length);
     // Chrome caps popups at 600px; 480 keeps the main view (incl. the quick-convert row) well inside it.
