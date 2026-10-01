@@ -2,7 +2,7 @@
 
 **English** · [简体中文](PRIVACY.zh-CN.md)
 
-Applies to version 0.3.1. Last updated 2026-09-30. Maintainer: [JohnsonRan / PriceLens](https://github.com/JohnsonRan/PriceLens).
+Applies to version 0.4.0. Last updated 2026-10-01. Maintainer: [JohnsonRan / PriceLens](https://github.com/JohnsonRan/PriceLens).
 
 PriceLens shows currency-conversion estimates next to prices on web pages. Everyday conversion needs no account. Optional AI is off by default. List-price differences are computed locally, without AI, and send no page content.
 
