@@ -127,7 +127,7 @@ function shopPage(name, L, { dark = false, feePercent = 0, action = '' } = {}) {
 <p class="was"><s>${s.was}</s></p>
 <p class="desc">${s.desc}</p></div></section>
 <ul class="grid">${s.items.map(([n, p]) => `<li><div class="t"></div><span>${n}</span><b>${p}</b></li>`).join('')}</ul>
-<script src="${extUrl('shared.js')}"></script><script>${js}</script><script src="${extUrl('content.js')}"></script>
+<script src="${extUrl('shared.js')}"></script><script>${js}</script><script src="${extUrl('dom.js')}"></script><script src="${extUrl('evidence.js')}"></script><script src="${extUrl('placement.js')}"></script><script src="${extUrl('content.js')}"></script>
 </body></html>`;
   const file = path.join(work, `${L.pack}-${name}-shop.html`);
   fs.writeFileSync(file, html);

@@ -1,22 +1,16 @@
 (() => {
   const C = PriceLens;
-  const MARK = "data-pricelens";
-  const TEXT_SKIP = `script,style,noscript,textarea,input,select,option,code,pre,svg,math,canvas,iframe,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[hidden],[${MARK}]`;
-  const SKIP = `${TEXT_SKIP},sup,sub,[aria-hidden="true"]`;
+  const { MARK, SKIP, CARD, CURRENCY_SCOPE, HEADING, CONTROL, holds, related, touchesAny, elementOf, shown, redact, composedOrder, textOf, visuallyClipped, isVisible, sourceRect, superscriptText, crossesProducts, isStruck } = PriceLensDom;
+  const { detectPageHint, readJsonLd } = PriceLensEvidence;
+  const { colorCache, backgroundTheme, fits, layoutKey, placeBadge } = PriceLensPlacement;
   const records = new Map();
   const badgeAnchors = new WeakMap();
   const savingsRecords = new Map();
   const priceUnits = new Map();
   const skipped = new Map(); // Visible price unit -> one symbol ("$" or "¥") per price that no page evidence resolved.
-  const PRODUCT = '[itemscope][itemtype$="/Product"],[data-product-id],[data-asin]:not([data-asin=""])';
-  const CARD = `${PRODUCT},article,li,[role='listitem']`;
-  const CURRENCY_SCOPE = `${CARD},[itemscope][itemtype$="/Offer"]`;
-  const HEADING = "h1,h2,h3,h4,h5,h6";
   const pending = new Set();
   const visibilityRoots = new Set();
   const themeRoots = new Set();
-  const colorCache = new Map();
-  let colorContext;
   const visibilityTargets = new Map();
   const blockedPlacements = new Map();
   let hintDirty = true;
@@ -40,21 +34,6 @@
   // Open shadow roots: scanned like the document once the badge stylesheet can be adopted into them.
   const shadowRoots = new Set();
   let shadowSheet; // undefined: not loaded yet; null: unavailable, so shadow roots are left alone.
-  const hostOf = (node) => node.parentNode || node.host || null;
-  const holds = (outer, node) => { for (let n = node; n; n = hostOf(n)) if (n === outer) return true; return false; };
-  const related = (a, b) => holds(a, b) || holds(b, a);
-  const touchesAny = (roots, node) => [...roots].some((root) => related(root, node));
-  const elementOf = (node) => node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-  const shown = (el) => el.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) !== false;
-  // Emails and phone-like digit runs are stripped from context snippets before any use.
-  const redact = (text) => text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已移除]").replace(/\+?\d[\d ()-]{7,}\d/g, "[长数字已移除]");
-  const composedParent = (el) => el.parentElement || el.getRootNode().host || null;
-  function composedOrder(a, b) {
-    const chain = (n) => { const c = [n]; for (let r = n.getRootNode(); r instanceof ShadowRoot; r = r.host.getRootNode()) c.push(r.host); return c; };
-    const ca = chain(a), cb = chain(b);
-    for (const x of ca) for (const y of cb) if (x !== y && x.getRootNode() === y.getRootNode()) return x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-    return 0;
-  }
   function loadShadowSheet() {
     if (shadowSheet !== undefined) return;
     // The worker reads its own stylesheet, so content.css need not be web-accessible (and probeable by pages).
@@ -224,104 +203,6 @@
     }
   }
 
-  function textOf(node, visibleOnly = false, includeMirrors = false) {
-    if (node.nodeType === Node.TEXT_NODE) return node.data;
-    if (node.nodeType !== Node.ELEMENT_NODE) return "";
-    if (visibleOnly && (visuallyClipped(node) || getComputedStyle(node).visibility !== "visible" || getComputedStyle(node).display === "none")) return "";
-    let text = "";
-    for (const child of node.childNodes) {
-      if (child.nodeType === Node.ELEMENT_NODE && child.matches(includeMirrors ? TEXT_SKIP : SKIP)) continue;
-      const part = textOf(child, visibleOnly, includeMirrors);
-      // Digits split across elements ("19" + styled "99") are not one number; a space makes them unparseable instead of 1999.
-      text += child.nodeType === Node.ELEMENT_NODE && /\d$/.test(text) && /^\d/.test(part) ? ` ${part}` : part;
-      if (text.length > 160) break;
-    }
-    return text;
-  }
-
-  function priceFilterHints() {
-    const hints = [];
-    for (const form of document.forms) {
-      if (!isVisible(form) || !shown(form) || form.closest(CARD)) continue;
-      let action;
-      try { action = new URL(form.getAttribute("action") || location.href, document.baseURI); } catch { continue; }
-      if (action.origin !== location.origin || action.pathname !== location.pathname) continue;
-      const name = (input) => input.name.toLowerCase().replace(/[_-]/g, "");
-      const bounds = [...form.querySelectorAll("input[name]")].filter((input) => ["text", "number", "range"].includes(input.type) && input.getClientRects().length && shown(input) && /^(?:(?:min|max)(?:price|p)|(?:price|p)(?:min|max))$/.test(name(input)));
-      if (bounds.length !== 2) continue;
-      const lower = bounds.find((input) => name(input).includes("min"));
-      const upper = lower && bounds.find((input) => name(input) === name(lower).replace("min", "max"));
-      if (!upper) continue;
-      let group = lower.parentElement;
-      while (group !== form && !group.contains(upper)) group = group.parentElement;
-      // Only fixed, visible unit labels beside a same-page price filter; never input values or ad currency.
-      const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT, {
-        acceptNode: (node) => node.parentElement.closest(`${SKIP},button`) || !isVisible(node.parentElement) || !shown(node.parentElement) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
-      });
-      let node;
-      while ((node = walker.nextNode())) {
-        const currency = C.currencyFor(node.data.trim(), "");
-        if (currency) hints.push(currency);
-      }
-    }
-    return hints;
-  }
-
-  function detectPageHint(jsonLd) {
-    const hints = [document.documentElement.dataset.currency, ...priceFilterHints(), ...C.structuredCurrencies(jsonLd)];
-    // Explicit display preference metadata; never infer currency from a domain or language.
-    for (const el of document.querySelectorAll('input[type="hidden"][name="currencyOfPreference"]')) hints.push(el.value);
-    for (const el of document.querySelectorAll('meta[property="product:price:currency"],meta[property="og:price:currency"],head meta[itemprop="priceCurrency"]')) hints.push(el.content);
-    // An explicit page currency is navigation data, not a guess from domain or language.
-    if (document.querySelector(".a-price > .a-offscreen")) {
-      for (const script of document.scripts) {
-        for (const match of script.textContent.matchAll(/"currencyInfo"\s*:\s*\{\s*"code"\s*:\s*"([A-Z]{3})"/g)) hints.push(match[1]);
-      }
-    }
-    // Inline data may only narrow: any second declared code (a switcher, a display currency) cancels every page hint,
-    // including metadata ones, and an unscannable script counts as possibly conflicting.
-    const data = inlineDataCurrencies();
-    if (!data) return "";
-    // A visible currency switcher's selection is what the shopper sees; like inline data it can only veto.
-    for (const select of document.querySelectorAll("select")) {
-      const code = select.value.toUpperCase();
-      if (/^[A-Z]{3}$/.test(code) && Object.hasOwn(C.CURRENCIES, code) && /currenc|货币|币种|通貨/i.test(`${select.name} ${select.id} ${select.getAttribute("aria-label") || ""} ${select.labels?.[0]?.textContent || ""}`)) data.all.add(code);
-    }
-    if (data.all.size > 1) return "";
-    const meta = [...new Set(hints.filter((v) => Object.hasOwn(C.CURRENCIES, v)))];
-    if (meta.length > 1) return "";
-    const [declared] = data.all;
-    if (meta.length) return !declared || declared === meta[0] ? meta[0] : "";
-    // With no metadata, inline data is the only source and must tie that code to a price.
-    return declared && data.positive.size === 1 && data.positive.has(declared) && Object.hasOwn(C.CURRENCIES, declared) ? declared : "";
-  }
-
-  // Stores that print only "$" often state the currency in their inline app data (Next.js, Redux, storefront config).
-  // JSON-LD is excluded: it can list other regions' offers and is read through structuredCurrencies instead.
-  const scriptCodes = new WeakMap();
-  function inlineDataCurrencies() {
-    const all = new Set(), positive = new Set();
-    for (const script of document.scripts) {
-      if (script.src || /^application\/ld\+json\b/i.test(script.type)) continue;
-      const text = script.textContent;
-      if (text.length > 5_000_000) return null; // An unscanned script may contain conflicts; fail closed.
-      let cached = scriptCodes.get(script);
-      if (cached?.text !== text) scriptCodes.set(script, cached = { text, codes: C.dataCurrencies(text) });
-      for (const code of cached.codes.all) all.add(code);
-      for (const code of cached.codes.positive) positive.add(code);
-    }
-    return { all, positive };
-  }
-
-  function readJsonLd() {
-    const roots = [];
-    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
-      if (script.textContent.length > 500_000) continue;
-      try { roots.push(JSON.parse(script.textContent)); } catch { /* Malformed page JSON is not evidence. */ }
-    }
-    return roots;
-  }
-
   // Currency for one price: its own card's markup first (the page states it for this very product), then the user's
   // site/global choice, then the page-wide hint. A card that contradicts itself gets none, not the user's guess.
   function hintFor(node) {
@@ -398,19 +279,6 @@
     return false;
   }
 
-  function visuallyClipped(el) {
-    const style = getComputedStyle(el);
-    const rect = el.getBoundingClientRect();
-    // Offscreen accessibility labels can retain a normal text size without a clip rectangle.
-    const offscreen = style.position === "absolute" && (parseFloat(style.left) < -1000 || parseFloat(style.top) < -1000);
-    return Number(style.opacity) === 0 || offscreen || (rect.width <= 1 && rect.height <= 1) || !["auto", "none"].includes(style.clip) || style.clipPath !== "none";
-  }
-
-  function isVisible(anchor) {
-    const el = elementOf(anchor);
-    return Boolean(el?.isConnected && !el.closest(SKIP) && !visuallyClipped(el) && [...el.getClientRects()].some((rect) => rect.width > 0 && rect.height > 0) && getComputedStyle(el).visibility === "visible");
-  }
-
   function visibleUnit(el, prices) {
     if (visuallyClipped(el)) {
       const digits = prices[0].original.replace(/\D/g, "");
@@ -422,29 +290,6 @@
       }
     }
     return { anchor: el, prices };
-  }
-
-  // "$19<sup>99</sup>", "<sup>$</sup>19<sup>99</sup>", "1.299<sup>99</sup> €": join superscript cents and
-  // currency marks into one amount. Any other sup/sub (footnotes, units) keeps the element unsupported.
-  function superscriptText(el) {
-    let text = "";
-    const walk = (node) => {
-      for (const child of node.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) { text += child.data; continue; }
-        if (child.nodeType !== Node.ELEMENT_NODE || child.matches(`${TEXT_SKIP},[aria-hidden="true"]`)) continue;
-        if (!child.matches("sup,sub")) { if (!walk(child)) return false; continue; }
-        const part = child.textContent.trim();
-        if (/^\d{2}$/.test(part) && /\d$/.test(text.trimEnd())) {
-          text = text.trimEnd();
-          // Dot thousands ("1.299") mean a comma decimal.
-          text += /\.\d{3}$/.test(text) ? `,${part}` : `.${part}`;
-        } else if (/^\d{2}$/.test(part) && /[.,]$/.test(text.trimEnd())) text = text.trimEnd() + part;
-        else if (part && part.length <= 4 && !/\d/.test(part) && C.findPrices(`${part}1`, "", true).length === 1) text += part;
-        else return false;
-      }
-      return true;
-    };
-    return walk(el) ? text : null;
   }
 
   // With AI on, symbol-only amounts ("$", "¥") are units too (AI may settle them). With AI off they are not, but the
@@ -477,50 +322,6 @@
     return { anchor: node, prices, count };
   }
 
-  function sourceRect(anchor) {
-    if (anchor.nodeType === Node.ELEMENT_NODE) return anchor.getBoundingClientRect();
-    const range = document.createRange();
-    range.selectNodeContents(anchor);
-    return range.getBoundingClientRect();
-  }
-
-  function backgroundTheme(badge) {
-    try {
-      let remaining = 1;
-      const color = [0, 0, 0];
-      for (let el = composedParent(badge); el && remaining > 0; el = composedParent(el)) {
-        const style = getComputedStyle(el);
-        // Images/gradients cannot be reliably sampled from CSS. Use a solid, high-contrast fallback.
-        if (style.backgroundImage !== "none") return "light";
-        const value = style.backgroundColor;
-        if (!colorCache.has(value)) {
-          if (!colorContext) {
-            const canvas = document.createElement("canvas");
-            canvas.width = canvas.height = 1;
-            colorContext = canvas.getContext("2d", { willReadFrequently: true });
-          }
-          colorContext.clearRect(0, 0, 1, 1);
-          colorContext.fillStyle = value;
-          colorContext.fillRect(0, 0, 1, 1);
-          colorCache.set(value, colorContext.getImageData(0, 0, 1, 1).data);
-          if (colorCache.size > 256) colorCache.delete(colorCache.keys().next().value);
-        }
-        const rgba = colorCache.get(value);
-        const alpha = rgba[3] / 255;
-        for (let i = 0; i < 3; i++) color[i] += rgba[i] * alpha * remaining;
-        remaining *= 1 - alpha;
-      }
-      // A page can explicitly request a dark default canvas without painting a background.
-      const scheme = getComputedStyle(document.documentElement).colorScheme;
-      const canvasColor = scheme.includes("dark") && !scheme.includes("light") ? 18 : 255;
-      const linear = color.map((channel) => {
-        const value = (channel + remaining * canvasColor) / 255;
-        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-      });
-      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722 < 0.18 ? "dark" : "light";
-    } catch { return "light"; }
-  }
-
   function updateTheme(badge) {
     const theme = backgroundTheme(badge);
     if (badge.dataset.pricelensTheme !== theme) badge.dataset.pricelensTheme = theme;
@@ -534,171 +335,6 @@
     hintDirty = true; // Price-filter unit evidence must follow CSS visibility, not just its initial state.
     queueAIContexts(root);
     schedule();
-  }
-
-  function fits(badge) {
-    const rect = badge.getBoundingClientRect();
-    if (!rect.width || !rect.height || getComputedStyle(badge).visibility !== "visible") return false;
-    for (let el = badge.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
-      const style = getComputedStyle(el);
-      const box = el.getBoundingClientRect();
-      if (style.clipPath !== "none" || !["auto", "none"].includes(style.clip) || !["none", "0", ""].includes(style.webkitLineClamp)) return false;
-      if (["hidden", "clip"].includes(style.overflowX) && (rect.left < box.left - 1 || rect.right > box.right + 1)) return false;
-      if (["hidden", "clip"].includes(style.overflowY) && (rect.top < box.top - 1 || rect.bottom > box.bottom + 1)) return false;
-    }
-    return true;
-  }
-
-  function layoutKey(anchor) {
-    const parts = [];
-    let el = elementOf(anchor);
-    for (let depth = 0; el && el !== document.body && depth < 5; depth++, el = el.parentElement) {
-      const style = getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      parts.push([rect.width, rect.height, style.display, style.position, style.overflowX, style.overflowY, style.maxWidth, style.maxHeight, style.clip, style.clipPath, style.webkitLineClamp, style.font, style.whiteSpace, style.textAlign, style.flexDirection, style.gridTemplateColumns].join("/"));
-    }
-    return parts.join("|");
-  }
-
-  function flowSnapshot(anchor) {
-    let scope = elementOf(anchor);
-    while (scope && scope !== document.body && ["inline", "inline-block", "contents"].includes(getComputedStyle(scope).display)) scope = scope.parentElement;
-    if (!scope || scope === document.body || scope === document.documentElement) return null;
-    const lines = [];
-    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-    let node;
-    while ((node = walker.nextNode())) {
-      if (!node.data.trim() || node.parentElement.closest(`[${MARK}],script,style,[hidden]`) || visuallyClipped(node.parentElement) || getComputedStyle(node.parentElement).visibility !== "visible") continue;
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
-      if (rects.length) lines.push({ range, rects });
-    }
-    // A shrink-to-fit scope may widen into free space: keep the boxes of a few ancestors and their children to prove it.
-    const outer = [];
-    for (let el = scope.parentElement, depth = 0; el && el !== document.body && depth < 3; el = el.parentElement, depth++) {
-      outer.push({ el, box: el.getBoundingClientRect(), kids: [...el.children].map((kid) => [kid, kid.getBoundingClientRect()]) });
-    }
-    return { scope, box: scope.getBoundingClientRect(), lines, outer };
-  }
-
-  // The scope only grew to the right, and so did each ancestor up to one that kept its width, whose other children did
-  // not move sideways: the tag took free space beside a shrink-to-fit price box and pushed nothing along. As in
-  // preservesFlow, the line may grow by up to the tag's height (small fonts), moving what follows down by as much.
-  function grewIntoFreeSpace({ scope, box, outer }, badge) {
-    const grow = badge.getBoundingClientRect().height;
-    const same = (a, b, sides) => sides.every((side) => Math.abs(a[side] - b[side]) <= 1);
-    const taller = (a, b) => b.height >= a.height - 1 && b.height <= a.height + grow;
-    const widened = (a, b) => same(a, b, ["left", "top"]) && taller(a, b) && b.width > a.width;
-    const unmoved = (a, b) => same(a, b, ["left", "width"]) && taller(a, b) && b.top >= a.top - 1 && b.top <= a.top + grow;
-    if (!widened(box, scope.getBoundingClientRect())) return false;
-    let child = scope;
-    for (const { el, box: before, kids } of outer) {
-      const now = el.getBoundingClientRect();
-      if (unmoved(before, now)) {
-        return kids.every(([kid, rect]) => kid === badge || (kid === child ? widened : unmoved)(rect, kid.getBoundingClientRect()));
-      }
-      if (!widened(before, now)) return false;
-      child = el;
-    }
-    return false;
-  }
-
-  function preservesFlow(snapshot, badge, scrollbarDelta) {
-    if (!snapshot) return true;
-    const { scope, box, lines } = snapshot;
-    const next = scope.getBoundingClientRect(), badgeBox = badge.getBoundingClientRect();
-    const inside = scope.contains(badge);
-    if (Math.abs(next.width - box.width) > scrollbarDelta + 1 && !grewIntoFreeSpace(snapshot, badge)) return false;
-    if (Math.abs(next.height - box.height) > (inside ? badgeBox.height : 1)) return false;
-    let shift, sharesLine = false;
-    for (const { range, rects } of lines) {
-      const current = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
-      if (current.length !== rects.length) return false;
-      for (let i = 0; i < rects.length; i++) {
-        shift ??= current[i].top - rects[i].top;
-        if (Math.min(current[i].bottom, badgeBox.bottom) - Math.max(current[i].top, badgeBox.top) > Math.min(current[i].height, badgeBox.height) / 2) sharesLine = true;
-        if (Math.abs(current[i].width - rects[i].width) > 1 || Math.abs(current[i].height - rects[i].height) > 1 || Math.abs(current[i].top - rects[i].top - shift) > 1) return false;
-      }
-    }
-    // Allow baseline growth on an existing line, not an extra line wedged into the original copy.
-    return !inside || sharesLine;
-  }
-
-  function placeBadge(anchor, badge, previous, position) {
-    // Measure original flow without this badge, including when reusing it after resize or price changes.
-    if (badge.isConnected) badge.style.display = "none";
-    const before = sourceRect(anchor);
-    const flow = flowSnapshot(anchor);
-    const viewportWidth = document.documentElement.clientWidth;
-    badge.style.removeProperty("display");
-    const safe = () => {
-      const after = sourceRect(anchor);
-      const scrollbarDelta = Math.abs(document.documentElement.clientWidth - viewportWidth);
-      const parent = composedParent(badge); // A shadow root's top-level badge is laid out by its host.
-      // A badge must not become another flex/grid item and squeeze prices or neighboring controls.
-      if (/flex|grid/.test(getComputedStyle(parent).display)) return false;
-      // A details button stays outside host controls; a plain label is only for inside one (else it would be a dead tag).
-      if (badge.tagName === "BUTTON" ? parent.closest(CONTROL) : !parent.closest(CONTROL)) return false;
-      // Lifting one price's badge must not reverse it with another price's annotation. A reversal needs another
-      // badge either between this anchor and badge, or in a badge run right after one of this badge's ancestors
-      // (where a lifted badge is inserted), so only those few nodes are compared, not every badge nearby.
-      const reversed = (other) => {
-        const source = badgeAnchors.get(other);
-        return other !== badge && source && source !== anchor && Boolean(source.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING) !== Boolean(other.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING);
-      };
-      const between = document.createTreeWalker(parent, NodeFilter.SHOW_ELEMENT);
-      between.currentNode = anchor;
-      if (parent.contains(anchor)) for (let node = between.nextNode(); node && node !== badge; node = between.nextNode()) if (node.hasAttribute(MARK) && reversed(node)) return false;
-      for (let el = badge; el && el !== document.body; el = el.parentElement) {
-        for (let next = el.nextElementSibling; next?.hasAttribute(MARK); next = next.nextElementSibling) if (reversed(next)) return false;
-      }
-      const rect = badge.getBoundingClientRect(), bounds = parent.getBoundingClientRect();
-      return rect.left >= Math.max(0, bounds.left) - 1 && rect.right <= Math.min(document.documentElement.clientWidth, bounds.right) + 1 && fits(badge) && Math.abs(after.height - before.height) <= 1 && Math.abs(after.width - before.width) <= scrollbarDelta + 1 && preservesFlow(flow, badge, scrollbarDelta);
-    };
-    // A badge wrapped onto its own line needs no gap from the text before it; in a column exactly as wide as the
-    // badge (Apple's right-aligned model selectors) that gap alone pushes it out of bounds.
-    const startsLine = () => {
-      const range = document.createRange();
-      range.setStart(badge.parentNode, 0);
-      range.setEndBefore(badge);
-      const last = [...range.getClientRects()].filter((rect) => rect.width && rect.height).at(-1);
-      return !last || last.bottom <= badge.getBoundingClientRect().top + 1;
-    };
-    const placedSafely = () => {
-      badge.style.removeProperty("margin-inline-start");
-      if (safe()) return true;
-      badge.style.marginInlineStart = "0";
-      return startsLine() && safe();
-    };
-    if (position && placedSafely()) return position;
-    badge.remove();
-    let target = previous;
-    if (previous === anchor) {
-      let el = elementOf(anchor);
-      const original = textOf(anchor).trim();
-      for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
-        if (textOf(el).trim() !== original) break;
-        if (["absolute", "fixed"].includes(getComputedStyle(el).position)) { target = el.parentElement; break; }
-      }
-    }
-    for (let depth = 0; target?.parentNode && target !== document.body && target !== document.documentElement && depth < 3; depth++, target = target.parentElement) {
-      // Never write inside the price component. Try nearby flow containers only, not a page-wide overlay.
-      const box = sourceRect(target);
-      if (target !== anchor && target !== previous && ((box.width > Math.max(420, before.width * 4) && !(target === flow?.scope && textOf(target).length <= 360)) || box.height > Math.max(420, before.height * 12))) break;
-      let insertion = target;
-      for (let next = target.nextSibling; next?.nodeType === Node.ELEMENT_NODE && next.hasAttribute(MARK); next = next.nextSibling) {
-        const source = badgeAnchors.get(next);
-        if (next === badge || !source || !(source.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING)) break;
-        insertion = next;
-      }
-      insertion.after(badge);
-      if (placedSafely()) return target;
-      badge.remove();
-      // On fallback, step past inline wrappers to keep their words and price qualifiers together.
-      while (target.parentElement && target.parentElement !== document.body && ["inline", "contents"].includes(getComputedStyle(target.parentElement).display)) target = target.parentElement;
-    }
-    return null;
   }
 
   function annotate(node, seen, unitsSeen) {
@@ -720,7 +356,6 @@
 
   // Only "$", "¥" and "￥" stay unresolved; "￥" and a starting-price "～" are no different symbol to the user.
   const symbolOf = (price) => /[¥￥]/.test(price.original) ? "¥" : "$";
-  const CONTROL = 'a[href],button,summary,[role="button"],[role="link"]';
   // label: a non-interactive span for inside a host control; otherwise a button that opens the details dialog.
   function makeBadge(label) {
     const badge = document.createElement(label ? "span" : "button");
@@ -791,13 +426,13 @@
       dress(badge);
       const position = record?.positions[badges.length];
       const nearby = position?.isConnected && (position === anchor || position === previous || position.contains(anchor)) && badge.parentNode === position.parentNode;
-      let placed = placeBadge(anchor, badge, previous, nearby ? position : null);
+      let placed = placeBadge(anchor, badge, previous, nearby ? position : null, badgeAnchors);
       if (!placed && control && badge.tagName === "BUTTON") {
         dropBadge(badge);
         badge = makeBadge(true);
         badgeAnchors.set(badge, anchor);
         dress(badge);
-        placed = placeBadge(anchor, badge, previous, null);
+        placed = placeBadge(anchor, badge, previous, null, badgeAnchors);
       }
       if (!placed) { dropBadge(badge); blocked = true; continue; }
       if (!nearby || placed !== position || !badge.dataset.pricelensTheme) updateTheme(badge);
@@ -816,44 +451,6 @@
       if (blocked) blockedPlacements.set(anchor, layoutKey(anchor));
       else blockedPlacements.delete(anchor);
     }
-  }
-
-  function isStruck(anchor, price) {
-    const el = elementOf(anchor);
-    const decorated = (node) => {
-      for (let parent = node; parent && parent !== document.body; parent = parent.parentElement) {
-        if (parent.matches("s,del") || getComputedStyle(parent).textDecorationLine.includes("line-through")) return true;
-      }
-      return false;
-    };
-    if (!el) return false;
-    if (decorated(el)) return true;
-    // A text anchor owns only that text, never the formatting of a sibling amount.
-    if (anchor.nodeType === Node.TEXT_NODE) return false;
-    for (const mirror of [el, ...el.querySelectorAll("*")]) {
-      if (mirror.closest(`[${MARK}],script,style,[hidden],form`) || visuallyClipped(mirror) || getComputedStyle(mirror).visibility !== "visible") continue;
-      const values = C.findPrices(textOf(mirror, true, true), price.currency);
-      if (!values.length || !values.every((value) => value.currency === price.currency && value.amount === price.amount)) continue;
-      if (decorated(mirror)) return true;
-      if (getComputedStyle(mirror).position === "static") continue;
-      // Some sites draw a strike with a thin, full-width pseudo-element across the price's middle.
-      // Do not treat underlines, separators or a line on a different amount as strike evidence.
-      const rect = mirror.getBoundingClientRect();
-      for (const pseudo of ["::before", "::after"]) {
-        const line = getComputedStyle(mirror, pseudo);
-        const border = Math.max(parseFloat(line.borderTopWidth), parseFloat(line.borderBottomWidth));
-        const top = parseFloat(line.top), width = parseFloat(line.width), left = parseFloat(line.left);
-        if (line.content === '""' && line.position === "absolute" && line.visibility === "visible" && Number(line.opacity) > 0 && line.transform === "none" && border > 0 && border <= 2 && (parseFloat(line.height) || 0) <= 2 && Math.abs(left) <= 2 && width >= rect.width * 0.9 && width <= rect.width + 2 && top >= rect.height * 0.35 && top <= rect.height * 0.65) return true;
-      }
-    }
-    return false;
-  }
-
-  function crossesProducts(scope, origin) {
-    if (scope.querySelectorAll(HEADING).length > 1) return true;
-    if ([...scope.querySelectorAll(CARD)].some((card) => !origin || !card.contains(origin))) return true;
-    const links = [...scope.querySelectorAll("a[href]")].filter((link) => link.querySelector(`img,${HEADING}`));
-    return new Set(links.map((link) => link.getAttribute("href"))).size > 1;
   }
 
   // Distinct amounts contained by each ancestor of a price unit, built once per scan (linear in units × depth).

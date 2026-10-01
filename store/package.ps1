@@ -35,7 +35,7 @@ foreach ($size in @(16, 32)) {
     if ($manifest.action.default_icon."$size" -ne "icons/icon$size.png") { throw "Action icon $size is missing." }
 }
 # A fixed allowlist prevents test pages, secrets, browser profiles and store materials entering the ZIP.
-$files = @('manifest.json', 'shared.js', 'background.js', 'jev.js', 'content.js', 'content.css', 'popup.html', 'popup.js', 'popup.css', '_locales/zh_CN/messages.json', '_locales/zh/messages.json', '_locales/en/messages.json', 'fonts/SpaceGrotesk.woff2', 'fonts/OFL.txt', 'icons/icon16.png', 'icons/icon32.png', 'icons/icon48.png', 'icons/icon128.png')
+$files = @('manifest.json', 'shared.js', 'background.js', 'jev.js', 'dom.js', 'evidence.js', 'placement.js', 'content.js', 'content.css', 'popup.html', 'popup.js', 'popup.css', '_locales/zh_CN/messages.json', '_locales/zh/messages.json', '_locales/en/messages.json', 'fonts/SpaceGrotesk.woff2', 'fonts/OFL.txt', 'icons/icon16.png', 'icons/icon32.png', 'icons/icon48.png', 'icons/icon128.png')
 # The repo keeps one Chinese pack (zh, which Chrome also uses for zh-CN); the ZIP still ships zh_CN for the store listing.
 $aliases = @{ '_locales/zh_CN/messages.json' = '_locales/zh/messages.json' }
 function SourceOf($file) { Join-Path $extension $(if ($aliases.ContainsKey($file)) { $aliases[$file] } else { $file }) }
