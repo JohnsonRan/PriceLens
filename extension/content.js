@@ -568,7 +568,30 @@
       const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
       if (rects.length) lines.push({ range, rects });
     }
-    return { scope, box: scope.getBoundingClientRect(), lines };
+    // A shrink-to-fit scope may widen into free space: keep the boxes of a few ancestors and their children to prove it.
+    const outer = [];
+    for (let el = scope.parentElement, depth = 0; el && el !== document.body && depth < 3; el = el.parentElement, depth++) {
+      outer.push({ el, box: el.getBoundingClientRect(), kids: [...el.children].map((kid) => [kid, kid.getBoundingClientRect()]) });
+    }
+    return { scope, box: scope.getBoundingClientRect(), lines, outer };
+  }
+
+  // The scope only grew to the right, and so did each ancestor up to one that kept its box, whose other children did
+  // not move: the tag took free space beside a shrink-to-fit price box and pushed nothing.
+  function grewIntoFreeSpace({ scope, box, outer }, badge) {
+    const same = (a, b, sides) => sides.every((side) => Math.abs(a[side] - b[side]) <= 1);
+    const widened = (a, b) => same(a, b, ["left", "top", "height"]) && b.width > a.width;
+    if (!widened(box, scope.getBoundingClientRect())) return false;
+    let child = scope;
+    for (const { el, box: before, kids } of outer) {
+      const now = el.getBoundingClientRect();
+      if (same(before, now, ["left", "top", "width", "height"])) {
+        return kids.every(([kid, rect]) => kid === badge || (kid === child ? widened(rect, kid.getBoundingClientRect()) : same(rect, kid.getBoundingClientRect(), ["left", "top", "width", "height"])));
+      }
+      if (!widened(before, now)) return false;
+      child = el;
+    }
+    return false;
   }
 
   function preservesFlow(snapshot, badge, scrollbarDelta) {
@@ -576,7 +599,8 @@
     const { scope, box, lines } = snapshot;
     const next = scope.getBoundingClientRect(), badgeBox = badge.getBoundingClientRect();
     const inside = scope.contains(badge);
-    if (Math.abs(next.width - box.width) > scrollbarDelta + 1 || Math.abs(next.height - box.height) > (inside ? badgeBox.height : 1)) return false;
+    if (Math.abs(next.width - box.width) > scrollbarDelta + 1 && !grewIntoFreeSpace(snapshot, badge)) return false;
+    if (Math.abs(next.height - box.height) > (inside ? badgeBox.height : 1)) return false;
     let shift, sharesLine = false;
     for (const { range, rects } of lines) {
       const current = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
