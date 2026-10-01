@@ -123,5 +123,5 @@
     return false;
   }
 
-  globalThis.PriceLensDom = Object.freeze({ MARK, TEXT_SKIP, SKIP, PRODUCT, CARD, CURRENCY_SCOPE, HEADING, CONTROL, holds, related, touchesAny, elementOf, shown, redact, composedParent, composedOrder, textOf, visuallyClipped, isVisible, sourceRect, superscriptText, crossesProducts, isStruck });
+  globalThis.PriceLensDom = Object.freeze({ MARK, SKIP, CARD, CURRENCY_SCOPE, HEADING, CONTROL, holds, related, touchesAny, elementOf, shown, redact, composedParent, composedOrder, textOf, visuallyClipped, isVisible, sourceRect, superscriptText, crossesProducts, isStruck });
 })();

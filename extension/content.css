@@ -1,6 +1,6 @@
 /* In-page PriceLens price tag: rounded "tag" end with a punched hole. A compact 18px chip, because
-   content.js drops any badge that would overflow its container or reflow the page.
-   System fonts only (host CSP may block extension fonts). content.js picks the light or dark palette per badge. */
+   placement.js drops any badge that would overflow its container or reflow the page.
+   System fonts only (host CSP may block extension fonts). placement.js picks the light or dark palette per badge. */
 .pricelens-price[data-pricelens] {
   all: initial;
   --pl-bg: #e2f3e8;

@@ -1,4 +1,5 @@
-/* Where a badge may sit without reflowing or clipping the page, and which palette its background needs. */
+/* Where a badge may sit without reflowing or clipping the page, and which palette its background needs.
+   Its only state is the background-colour sample cache, which content.js clears when stylesheets change. */
 (() => {
   const { MARK, CONTROL, elementOf, composedParent, textOf, visuallyClipped, sourceRect } = PriceLensDom;
   const colorCache = new Map();
