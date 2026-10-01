@@ -25,6 +25,9 @@ globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after t
 window.addEventListener('load', async () => {
   const el = (id) => document.getElementById(id);
   const wait = () => new Promise((resolve) => setTimeout(resolve, 40));
+  // Poll instead of sleeping for the popup's own timers; the cap keeps a failure inside the virtual-time budget.
+  const until = async (cond, ms) => { for (let t = 0; t < ms && !cond(); t += 20) await new Promise((resolve) => setTimeout(resolve, 20)); };
+  const statusAsks = () => tabMessages.filter(([m]) => m.type === 'pageStatus').length;
   const report = { completed: false, systemDark: matchMedia('(prefers-color-scheme: dark)').matches, checks: [] };
   const check = (name, condition, detail) => report.checks.push({ name, pass: Boolean(condition), detail });
   try {
@@ -44,8 +47,8 @@ window.addEventListener('load', async () => {
     check('daily controls remain visible, AI/credentials/diagnostics do not', ['target', 'enabled', 'pause-site', 'status-title'].every((id) => el(id).checkVisibility()) && ['provider', 'jev-enabled', 'jev-key', 'jev-status', 'status-detail'].every((id) => !el(id).checkVisibility()));
     check('settings stay usable while the page is still scanning', el('skip-notice').hidden && !el('refresh').disabled);
     settleScan();
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    check('a page that reports a pending scan is asked again until it settles', tabMessages.filter(([m]) => m.type === 'pageStatus').length === 2, tabMessages.length);
+    await until(() => !el('skip-notice').hidden, 1000); await wait();
+    check('a page that reports a pending scan is asked again until it settles', statusAsks() === 2, tabMessages.length);
     // Chrome caps popups at 600px; 480 keeps the main view (incl. the quick-convert row) well inside it.
     {
       const withNotice = document.body.scrollHeight;
@@ -76,15 +79,15 @@ window.addEventListener('load', async () => {
     el('save').click(); await wait();
     check('AI opt-out saves without requesting permission', !saved.jevEnabled && permissions.length === 0 && el('notice').textContent.includes('已保存') && el('save').disabled);
     check('after a save the page status is read again', el('skip-notice').checkVisibility(), tabMessages.filter(([m]) => m.type === 'pageStatus').length);
-    await new Promise((resolve) => setTimeout(resolve, 2700));
+    await until(() => el('notice').textContent === '', 3500);
     check('the saved confirmation fades and the save bar hides', el('notice').textContent === '' && getComputedStyle(document.querySelector('.save-area')).display === 'none');
     {
       // A page still busy after every retry: its skipped count is about to change, so none is shown.
       statusReplies.push(...Array.from({ length: 10 }, () => ({ ...settledStatus, pending: true })));
-      const asked = tabMessages.filter(([m]) => m.type === 'pageStatus').length;
+      const asked = statusAsks();
       el('fee').value = '0.5'; el('fee').dispatchEvent(new Event('input', { bubbles: true }));
-      el('save').click(); await new Promise((resolve) => setTimeout(resolve, 2300));
-      const retries = tabMessages.filter(([m]) => m.type === 'pageStatus').length - asked;
+      el('save').click(); await until(() => statusAsks() - asked >= 10, 3000); await new Promise((resolve) => setTimeout(resolve, 300)); // an 11th ask would land here
+      const retries = statusAsks() - asked;
       check('a page still scanning after every retry shows no skipped count', retries === 10 && el('skip-notice').hidden, retries);
       el('fee').value = '0'; el('fee').dispatchEvent(new Event('input', { bubbles: true }));
       el('save').click(); await wait();

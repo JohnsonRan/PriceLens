@@ -9,6 +9,8 @@ tests/*
 !tests/mv3.test.cjs
 !tests/popup.test.cjs
 !tests/price-bounds.test.cjs
+!tests/currency-evidence.test.cjs
+!tests/release.test.cjs
 !tests/lazy.test.cjs
 !tests/browser.cjs
 !tests/i18n.cjs
