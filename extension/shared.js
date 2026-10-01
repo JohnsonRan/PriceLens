@@ -143,10 +143,8 @@
   // Manual hint for a host: this site's choice, else the global one, else none.
   const manualHint = (settings, host) => siteHintFor(settings, host) || settings.sourceHint || "";
 
-  function pairSavings(input, choice) {
-    const pair = typeof choice === "string" && /^([A-D])_REFERENCE_([A-D])_CURRENT$/.exec(choice);
-    if (!pair || pair[1] === pair[2] || !Array.isArray(input?.candidates) || input.candidates.length < 2 || input.candidates.length > 4) return null;
-    const referenceIndex = pair[1].charCodeAt(0) - 65, currentIndex = pair[2].charCodeAt(0) - 65;
+  function pairSavings(input, referenceIndex, currentIndex) {
+    if (referenceIndex === currentIndex || !Array.isArray(input?.candidates) || input.candidates.length < 2 || input.candidates.length > 4) return null;
     const candidates = [input.candidates[referenceIndex], input.candidates[currentIndex]];
     if (typeof candidates[0]?.group !== "string" || !candidates[0].group || candidates[0].group !== candidates[1]?.group) return null;
     const prices = candidates.map((candidate) => {
@@ -257,17 +255,16 @@
   // Deterministic reference/current pairing: page markup first, then one struck vs one unstruck amount.
   function localSavings(input, structured = new Set()) {
     const n = input?.candidates?.length || 0;
-    const letter = (i) => String.fromCharCode(65 + i);
     const found = [];
     for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
-      const pair = a !== b && pairSavings(input, `${letter(a)}_REFERENCE_${letter(b)}_CURRENT`);
+      const pair = a !== b && pairSavings(input, a, b);
       if (pair && structured.has(`${pair.currency}:${pair.reference.amount}>${pair.current.amount}`)) found.push(pair);
     }
     if (found.length === 1) return { ...found[0], source: "structured" };
     if (found.length || n !== 2 || CONDITIONAL.test(input.context || "")) return null;
     const struck = input.candidates.findIndex((candidate) => candidate.struck === true);
     if (struck < 0 || input.candidates[1 - struck].struck === true) return null;
-    const pair = pairSavings(input, `${letter(struck)}_REFERENCE_${letter(1 - struck)}_CURRENT`);
+    const pair = pairSavings(input, struck, 1 - struck);
     return pair && { ...pair, source: "strike" };
   }
 

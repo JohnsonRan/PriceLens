@@ -19,9 +19,9 @@ test('trailing starting-price markers retain bounds without becoming closed rang
 
 test('starting prices cannot enter reference/current subtraction', () => {
   const pair = originals => ({ currencyHint: 'JPY', candidates: originals.map(original => ({ original, group: 'same-item' })) });
-  assert.equal(C.pairSavings(pair(['JPY 1000', 'JPY 800～']), 'A_REFERENCE_B_CURRENT'), null);
-  assert.equal(C.pairSavings(pair(['JPY 1000～', 'JPY 800']), 'A_REFERENCE_B_CURRENT'), null);
-  assert.equal(C.pairSavings(pair(['JPY 1000', 'JPY 800']), 'A_REFERENCE_B_CURRENT').amount, 200);
+  assert.equal(C.pairSavings(pair(['JPY 1000', 'JPY 800～']), 0, 1), null);
+  assert.equal(C.pairSavings(pair(['JPY 1000～', 'JPY 800']), 0, 1), null);
+  assert.equal(C.pairSavings(pair(['JPY 1000', 'JPY 800']), 0, 1).amount, 200);
 });
 
 test('schema.org sale markup yields exactly one reference/current pair per offer', () => {
