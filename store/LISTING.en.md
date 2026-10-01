@@ -33,7 +33,8 @@ PriceLens keeps every original price on the page and adds a small tag beside it 
 
 Features
 • Pick your currency once; supported prices on the page get a conversion tag.
-• Original prices are never replaced. Click a tag to see the currency, rate date and rate source.
+• Original prices are never replaced. Click a tag (or hover one inside a product link) to see the currency, rate date and rate source.
+• When "$" or "¥" prices are skipped as ambiguous, the panel says how many and links to this site's currency setting.
 • Quick convert: the panel shows the live rate for a currency pair. Type any amount to convert it.
 • Right-click conversion: select a price the page scan missed and choose "Convert with PriceLens".
 • Card fee: add your card's foreign transaction fee, so results are closer to what you will actually be charged.
@@ -79,12 +80,22 @@ Issues: https://github.com/JohnsonRan/PriceLens/issues
 | `activeTab` | Reads the current tab's address when the user opens the panel, to show and pause the current site. Also grants the one-off page access a right-click conversion needs. |
 | `contextMenus` | Adds "Convert with PriceLens" for selected text. The selection is parsed locally and never uploaded. |
 | `scripting` | Fallback display for right-click conversion only. On tabs opened before install or update, with no live content script, it shows the result through the activeTab grant from that click. It injects no remote code and does not read page content. |
-| Content script on http/https | Recognises prices locally on pages the user visits and adds conversion tags. Shopping sites are not known in advance. Top frame only. Users can pause sites or restrict access in the browser. |
+| Content script on http/https | Recognises prices locally on pages the user visits and adds conversion tags. To tell which currency a page uses it also reads, locally, the page's own structured data, price meta tags and inline script data (scanned as text, never executed, never sent). Shopping sites are not known in advance. Top frame only. Users can pause sites or restrict access in the browser. |
 | `api.frankfurter.dev` | Fetches the default daily central-bank reference rates. Sends only currency codes, never page text. |
 | Optional `api.wise.com` | After the user chooses Wise and grants access, fetches rates with the user's own token. |
 | Optional `api.typesafe.ai` | Only after explicit consent and granted access. Sends ambiguous prices and up to 360 characters of nearby text with the user's own key, so the model can choose from a fixed currency list. Off by default. |
 
 **Remote code:** none. APIs return only rate data or limited selections. All scripts and the bundled font ship in the ZIP, and no AI output is executed.
+
+## What's new in 0.4.0 (for the listing or release notes)
+
+- **Smarter currency detection.** When a page's own data names exactly one currency for its prices, prices shown only as "$" or "¥" are converted instead of skipped. Read locally; nothing is sent. Pages whose data names several currencies are still skipped.
+- **Skipped-price notice.** The panel says how many ambiguous prices were skipped on this page and links straight to this site's currency setting.
+- **Prices inside product links** now get a tag too. It is plain text, so clicking still opens the product; hover it for details.
+- **Smaller tags** fit beside more prices without moving the page.
+- Fixes: amounts followed by "million", "bn" or similar are no longer converted as if they were the whole amount; more consistent skipped counts; faster scanning on large pages.
+
+Known limits: a page whose own data states one currency while its visible text says another (for example a banner "Prices in CAD" over data saying USD) is converted with the data's currency; "$" or "¥" prices with no currency anywhere in the page (Steam, Newegg, Fanatical) need **Currency on this site**; PlayStation Store prices are not recognised yet; in some tight product grids (for example Xbox, Nintendo) there is no room for a tag beside the price, so use right-click conversion there.
 
 ## What's new in 0.3.0 (for the listing or release notes)
 

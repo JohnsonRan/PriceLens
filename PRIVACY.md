@@ -11,7 +11,8 @@ PriceLens shows currency-conversion estimates next to prices on web pages. Every
 - **Reading pages.** On ordinary HTTP/HTTPS pages the extension reads prices, a limited amount of nearby text, currency information and layout, so it can recognise prices and place conversion tags. By default none of this page content is sent to any external service.
 - **Site address.** The extension reads the current site's address locally, for "Pause on this site", per-site currency and some sensitive-path checks. It keeps no browsing-history database and does not request the browser history permission.
 - **Right-click conversion.** "Convert with PriceLens" parses the text you selected (up to 500 characters) locally and sends it nowhere. Rates are fetched, when needed, as described in section 2.
-- **Structured data.** Product structured data (JSON-LD) and struck-through price formatting are read only locally, to compute list-price differences.
+- **Page data.** To tell which currency a page uses, the extension also reads, locally, data the page itself embeds: product structured data (JSON-LD), price meta tags, and the text of inline `<script>` blocks (for example JSON app state such as `__NEXT_DATA__`). These scripts are only scanned as text for currency codes, never executed, and none of this data is sent anywhere or stored; it is not included in AI requests. Structured data and struck-through price formatting are also used, locally, to compute list-price differences.
+- **Panel status.** When you open the panel, the page reports to it only a count (how many prices were skipped) and the currency symbols involved, such as `$` or `¥`. No page text, prices or addresses are passed.
 - **Settings synced by your browser.** These settings are stored in the browser's `storage.sync` and may be synced by Chrome or Edge sync if you have it enabled:
   - auto-convert and list-price-difference switches
   - target currency and rate source
