@@ -24,6 +24,8 @@
 <section id="deep-wrapper"><div data-currency="AUD"><div><div><div><div><div><p>$7</p></div></div></div></div></div></div></section>
 <section id="deep-card"><article data-currency="CAD"><div><div><div><span>$5</span></div></div></div></article></section>
 <section id="interactive"><a href="#should-not-navigate"><span>USD 15</span></a><button type="button">EUR 12</button></section>
+<section id="card-link"><a href="#card" style="display:block;width:260px"><div><div><div style="height:30px">Game title</div><div><span>Current price:</span> <span>USD 30</span></div></div></div></a></section>
+<section id="unplaced-grid" style="display:grid;grid-template-columns:200px 200px"><a id="unplaced-card" href="#unplaced" style="display:flex;flex-direction:column;padding-bottom:40px"><h3>Game one</h3><div style="display:flex"><span id="unplaced-price">USD 20</span><s>USD 25</s></div></a><a href="#other" style="display:flex;flex-direction:column"><h3>Game two</h3><div style="display:flex"><span id="unplaced-other">USD 40</span></div></a></section>
 <pre id="dom-results">pending</pre>
 <script src="../../extension/shared.js"></script><script src="generality-regression.js"></script><script src="../../extension/content.js"></script>
 </body></html>

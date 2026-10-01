@@ -77,7 +77,7 @@
   }
 
   function focusableBadges() {
-    const badges = [document, ...shadowRoots].flatMap((root) => [...root.querySelectorAll('.pricelens-price[data-pricelens]')]).filter((badge) => badgeAnchors.has(badge));
+    const badges = [document, ...shadowRoots].flatMap((root) => [...root.querySelectorAll('button.pricelens-price[data-pricelens]')]).filter((badge) => badgeAnchors.has(badge));
     return shadowRoots.size ? badges.sort(composedOrder) : badges;
   }
 
@@ -125,7 +125,8 @@
   }
 
   document.addEventListener('click', (event) => {
-    const badge = event.composedPath()[0].closest?.('.pricelens-price[data-pricelens]');
+    // In-control labels are not buttons: their click belongs to the host link.
+    const badge = event.composedPath()[0].closest?.('button.pricelens-price[data-pricelens]');
     if (!badge || !badgeAnchors.has(badge)) return;
     event.preventDefault();
     event.stopPropagation(); // An annotation inside a product link must not navigate the page.
@@ -587,7 +588,9 @@
       const scrollbarDelta = Math.abs(document.documentElement.clientWidth - viewportWidth);
       const parent = composedParent(badge); // A shadow root's top-level badge is laid out by its host.
       // A badge must not become another flex/grid item and squeeze prices or neighboring controls.
-      if (/flex|grid/.test(getComputedStyle(parent).display) || parent.closest('a[href],button,summary,[role="button"],[role="link"]')) return false;
+      if (/flex|grid/.test(getComputedStyle(parent).display)) return false;
+      // A details button stays outside host controls; a plain label is only for inside one (else it would be a dead tag).
+      if (badge.tagName === "BUTTON" ? parent.closest(CONTROL) : !parent.closest(CONTROL)) return false;
       // Lifting one price's badge must not reverse it with another price's annotation. A reversal needs another
       // badge either between this anchor and badge, or in a badge run right after one of this badge's ancestors
       // (where a lifted badge is inserted), so only those few nodes are compared, not every badge nearby.
@@ -665,6 +668,25 @@
     renderPrices(anchor, prices);
   }
 
+  const CONTROL = 'a[href],button,summary,[role="button"],[role="link"]';
+  // label: a non-interactive span for inside a host control; otherwise a button that opens the details dialog.
+  function makeBadge(label) {
+    const badge = document.createElement(label ? "span" : "button");
+    badge.setAttribute(MARK, "");
+    badge.className = "pricelens-price";
+    if (!label) {
+      badge.type = "button";
+      badge.tabIndex = -1;
+      badge.setAttribute("aria-haspopup", "dialog");
+    }
+    return badge;
+  }
+  function dropBadge(badge) {
+    if (!badge) return;
+    if (badge === detailBadge) closeDetails(false);
+    badge.remove();
+  }
+
   function renderPrices(anchor, prices, store = records, key = anchor) {
     const record = store.get(key);
     const old = record?.badges || [];
@@ -679,16 +701,15 @@
       if (!price.currency || (price.currency === settings.target && !price.savings)) continue;
       const amount = price.currency === settings.target ? price.amount : C.convert(price.amount, price.currency, table, settings.feePercent);
       if (amount === null || !Number.isFinite(amount)) continue;
-      const badge = old[badges.length] || document.createElement("button");
-      if (!badge.hasAttribute(MARK)) {
-        badge.setAttribute(MARK, ""); badge.className = "pricelens-price";
-        badge.type = "button"; badge.tabIndex = -1;
-        badge.setAttribute("aria-haspopup", "dialog");
-      }
+      // A price inside a host link/button first tries a details button outside that control. If that cannot fit, a
+      // plain label goes inside it: a control may not contain another control, and a click keeps opening the product.
+      // Once a label, it stays one while the price stays inside a control, so re-renders do not retry failed spots.
+      const reused = old[badges.length];
+      const control = Boolean((anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement)?.closest(CONTROL));
+      let badge = reused?.tagName === "SPAN" && !control ? makeBadge(false) : reused || makeBadge(false);
+      if (badge !== reused) dropBadge(reused);
       badgeAnchors.set(badge, anchor);
       const stale = price.currency !== settings.target && table.stale;
-      if (badge.dataset.stale !== String(stale)) badge.dataset.stale = String(stale);
-      if (badge.dataset.pricelensSavings !== String(Boolean(price.savings))) badge.dataset.pricelensSavings = String(Boolean(price.savings));
       const label = `${price.savings ? ` ${C.t("badgeSavings")} ` : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? ` ${C.t("badgeFrom")}` : ""}${ai ? " · AI" : ""}${stale ? ` · ${C.t("badgeCache")}` : ""}`;
       if (badge.textContent !== label) badge.textContent = label;
       const rate = table.rates[price.currency];
@@ -700,24 +721,34 @@
       if (price.minimum) title += `\n${C.t("minimumNote")}`;
       if (price.savings) title += `\n${C.t("savingsNote", C.t(price.savings.source === "structured" ? "savingsStructured" : "savingsStrike"))}`;
       else if (ai) title += `\n${C.t("aiCurrencyNote", price.currency)}`;
-      if (badge.title !== title) {
-        badge.title = title;
-        badge.setAttribute("aria-label", C.t("badgeAria", label.trim()));
-        if (badge === detailBadge) detailDialog.querySelector('p').textContent = title;
-      }
+      const dress = (el) => {
+        if (el.dataset.stale !== String(stale)) el.dataset.stale = String(stale);
+        if (el.dataset.pricelensSavings !== String(Boolean(price.savings))) el.dataset.pricelensSavings = String(Boolean(price.savings));
+        if (el.textContent !== label) el.textContent = label;
+        if (el.title === title) return;
+        el.title = title;
+        // A label's text is already part of its host control's accessible name; only the button needs its own.
+        if (el.tagName === "BUTTON") el.setAttribute("aria-label", C.t("badgeAria", label.trim()));
+        if (el === detailBadge) detailDialog.querySelector('p').textContent = title;
+      };
+      dress(badge);
       const position = record?.positions[badges.length];
       const nearby = position?.isConnected && (position === anchor || position === previous || position.contains(anchor)) && badge.parentNode === position.parentNode;
-      const placed = placeBadge(anchor, badge, previous, nearby ? position : null);
-      if (!placed) { if (badge === detailBadge) closeDetails(false); badge.remove(); blocked = true; continue; }
+      let placed = placeBadge(anchor, badge, previous, nearby ? position : null);
+      if (!placed && control && badge.tagName === "BUTTON") {
+        dropBadge(badge);
+        badge = makeBadge(true);
+        badgeAnchors.set(badge, anchor);
+        dress(badge);
+        placed = placeBadge(anchor, badge, previous, null);
+      }
+      if (!placed) { dropBadge(badge); blocked = true; continue; }
       if (!nearby || placed !== position || !badge.dataset.pricelensTheme) updateTheme(badge);
       previous = badge;
       positions.push(placed);
       badges.push(badge);
     }
-    for (const badge of old.slice(badges.length)) {
-      if (badge === detailBadge) closeDetails(false);
-      badge.remove();
-    }
+    for (const badge of old) if (!badges.includes(badge)) dropBadge(badge);
     if (badges.length) store.set(key, { badges, positions, anchor, layout: layoutKey(anchor) });
     else store.delete(key);
     if (store === records) {

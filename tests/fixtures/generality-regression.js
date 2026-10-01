@@ -49,7 +49,7 @@ window.addEventListener('load', async () => {
       check('a badge wrapped into a column exactly its width drops its leading gap instead of disappearing', tag && tag.left >= column.left - 1 && tag.right <= column.right + 1 && amounts('narrow-col')[0].includes('239,840.00'), amounts('narrow-col'));
       check('a badge beside its price on the same line keeps its gap', parseFloat(getComputedStyle(badges('known')[0]).marginInlineStart) > 0, getComputedStyle(badges('known')[0]).marginInlineStart);
     }
-    const controls = [...document.querySelectorAll('.pricelens-price[data-pricelens]')];
+    const controls = [...document.querySelectorAll('button.pricelens-price[data-pricelens]')];
     check('price annotations use native buttons with exactly one Tab entry', controls.every(b => b.tagName === 'BUTTON' && b.type === 'button' && b.getAttribute('aria-haspopup') === 'dialog') && controls.filter(b => b.tabIndex === 0).length === 1);
     controls[0].focus();
     controls[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
@@ -63,6 +63,17 @@ window.addEventListener('load', async () => {
     check('modal visibly contains rate basis and disclaimer', dialog?.querySelector('p').textContent.includes('报价时间') && dialog?.querySelector('p').textContent.includes('仅供参考') && dialog.getBoundingClientRect().width <= innerWidth);
     dialog.querySelector('button').click(); await wait();
     check('closing details removes modal and restores trigger focus', !dialog.isConnected && document.activeElement === badges('interactive')[0]);
+    {
+      const label = el('card-link').querySelector('[data-pricelens]');
+      check('a price deep inside a product-card link gets a plain label inside the link', label?.tagName === 'SPAN' && label.closest('a') && badges('card-link').length === 1 && label.textContent.includes('240.00'), amounts('card-link'));
+      check('the in-link label is not a control: no Tab stop, no popup role, details on hover', !label.hasAttribute('tabindex') && !label.hasAttribute('aria-haspopup') && !label.hasAttribute('aria-label') && label.title.includes('USD 30'));
+      let prevented = null, linkClicks = 0;
+      el('card-link').addEventListener('click', (e) => { linkClicks++; prevented = e.defaultPrevented; e.preventDefault(); });
+      label.click(); await wait();
+      check('clicking the label follows the host link instead of opening details', linkClicks === 1 && prevented === false && !document.querySelector('dialog.pricelens-details'));
+    }
+    check('prices with no room beside them in a tight flex/grid card get no tag', badges('unplaced-grid').length === 0, amounts('unplaced-grid'));
+    check('plain labels exist only inside host controls and never take focus', [...document.querySelectorAll('span.pricelens-price[data-pricelens]')].every((s) => s.parentElement.closest('a[href],button') && !s.hasAttribute('tabindex')));
     check('initial local metadata converts', amounts('dynamic').some(t => t.includes('80.00')), amounts('dynamic'));
     badges('dynamic')[0].click();
     dialog = document.querySelector('dialog.pricelens-details');

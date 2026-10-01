@@ -1,4 +1,4 @@
-/* In-page PriceLens price tag: rounded "tag" end with a punched hole. Same footprint as a plain 12px chip, because
+/* In-page PriceLens price tag: rounded "tag" end with a punched hole. A compact 18px chip, because
    content.js drops any badge that would overflow its container or reflow the page.
    System fonts only (host CSP may block extension fonts). content.js picks the light or dark palette per badge. */
 .pricelens-price[data-pricelens] {
@@ -13,14 +13,15 @@
   display: inline-block;
   position: relative;
   margin-inline-start: 0.4em;
-  padding: 2px 4px 2px 11px;
+  /* 18px tall: no taller than the tight 20-22px price rows of product cards, so it fits beside a price more often. */
+  padding: 1px 4px 1px 10px;
   border: 1px solid var(--pl-border);
-  border-radius: 10px 4px 4px 10px;
+  border-radius: 8px 4px 4px 8px;
   background: var(--pl-bg);
   color: var(--pl-text);
-  font: 600 12px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font: 600 11px/14px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+  white-space: nowrap;
   vertical-align: baseline;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -40,6 +41,8 @@
   background: var(--pl-border);
 }
 .pricelens-price[data-pricelens][data-stale="true"]::before { background: var(--pl-cache-border); }
+/* In-link label: the host link owns the pointer and the click. */
+span.pricelens-price[data-pricelens] { cursor: inherit; }
 .pricelens-price[data-pricelens]:hover { border-color: currentColor; box-shadow: 0 1px 3px rgb(0 0 0 / 15%); }
 .pricelens-price[data-pricelens]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .pricelens-price[data-pricelens][data-stale="true"] {
