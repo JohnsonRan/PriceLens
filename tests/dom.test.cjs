@@ -9,6 +9,13 @@ const { spawnSync } = require("node:child_process");
 const { shellBrowser, platformFlags } = require("./browser.cjs");
 const { i18nScript } = require("./i18n.cjs");
 const browser = shellBrowser();
+// The first headless launch on a fresh CI runner pays a one-off system cold start (8-20s seen) that is not any fixture's
+// cost; pay it here so the 20s per-fixture timeout measures fixtures only.
+if (browser) {
+  const warm = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-warm-"));
+  spawnSync(browser, ["--headless=new", "--disable-gpu", ...platformFlags, `--user-data-dir=${warm}`, "--dump-dom", "about:blank"], { timeout: 60000 });
+  try { fs.rmSync(warm, { recursive: true, force: true, maxRetries: 4, retryDelay: 100 }); } catch { /* Chromium may still hold the temp profile. */ }
+}
 for (const fixture of ["dom-regression", "popup-regression", "currency-evidence-regression", "currency-context-regression", "generality-regression", "local-savings-regression", "jsonld-currency-regression", "data-currency-regression", "shadow-regression", "popup-english"]) for (const systemDark of [false, true]) test(`real DOM regression: ${fixture} (${systemDark ? "dark" : "light"} system)`, { skip: browser ? false : "Set CHROME_BIN to run isolated Chromium DOM tests" }, () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pricelens-dom-"));
   try {
