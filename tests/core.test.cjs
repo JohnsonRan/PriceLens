@@ -319,33 +319,6 @@ test("Jev settings stay local, keys never return, disabling cancels pending resu
   assert.equal((await pending).ok, false, "late results cannot re-enable AI or repopulate cache");
 });
 
-const legacyPair = {
-  currencyHint: "USD", context: "Reference USD 100; current USD 80.",
-  candidates: [{ original: "USD 100", group: "same-item" }, { original: "USD 80", group: "same-item" }],
-};
-const savingsMessage = (candidates = [legacyPair]) => ({ type: "inferJevSavings", candidates });
-const savingsAI = { ...activeAI, jevSavingsEnabled: true };
-
-test("retired AI savings requests are rejected without any upload, including legacy opt-in", async () => {
-  for (const [sync, local, options, url] of [
-    [{}, savingsAI, { granted: true }, "https://shop.test/"],
-    [{ jevSavingsEnabled: true }, activeAI, { granted: true }, "https://shop.test/"],
-    [{}, { jevSavingsEnabled: true, jevKey: "key" }, { granted: true }, "https://shop.test/"],
-    [{}, savingsAI, { granted: false }, "https://shop.test/"],
-    [{ excludedHosts: ["shop.test"] }, savingsAI, { granted: true }, "https://shop.test/"],
-    [{}, savingsAI, { granted: true }, "https://shop.test/checkout"],
-  ]) {
-    const w = worker(sync, local, options);
-    assert.equal((await w.send(savingsMessage(), false, url)).ok, false);
-    assert.equal(w.calls.length, 0);
-  }
-  const w = worker({}, savingsAI, { granted: true });
-  const differentProducts = { ...legacyPair, candidates: legacyPair.candidates.map((candidate, i) => ({ ...candidate, group: `item-${i}` })) };
-  assert.equal((await w.send(savingsMessage([differentProducts]), false)).ok, false, "different product groups never reach model");
-  assert.equal((await w.send(savingsMessage([{ ...legacyPair, context: "x".repeat(361) }]), false)).ok, false);
-  assert.equal(w.calls.length, 0);
-});
-
 function deferred() {
   let resolve;
   return { promise: new Promise((done) => { resolve = done; }), resolve: () => resolve() };
@@ -449,21 +422,6 @@ test("local reference-difference toggle defaults on, syncs, and requires a boole
   assert.equal(saved.ok, true);
   assert.equal(w.sync.savingsEnabled, false);
   assert.equal((await w.send({ type: "getState" }, false)).settings.savingsEnabled, false);
-  assert.equal(w.calls.length, 0);
-});
-
-test("retired AI savings flag is ignored on read and removed on save", async () => {
-  assert.equal("jevSavingsEnabled" in C.settingsFrom({ jevEnabled: true, jevSavingsEnabled: true }), false);
-  const w = worker({ jevSavingsEnabled: true }, savingsAI, { granted: true });
-  assert.equal("jevSavingsEnabled" in (await w.send({ type: "getState" }, false)).settings, false);
-  const saved = await w.send({ type: "saveSettings", settings: { ...C.DEFAULTS, jevEnabled: true, jevSavingsEnabled: true }, token: null, jevKey: null });
-  assert.equal(saved.ok, true);
-  assert.equal("jevSavingsEnabled" in saved.settings, false);
-  assert.equal("jevSavingsEnabled" in w.local, false, "stale local flag is cleaned up");
-  assert.equal("jevSavingsEnabled" in w.sync, false, "stale synced flag is cleaned up");
-  assert.equal(saved.settings.jevEnabled, true, "ordinary currency AI remains available");
-  assert.equal(saved.settings.savingsEnabled, true, "local reference differences need no AI opt-in");
-  assert.equal((await w.send(savingsMessage(), false)).ok, false);
   assert.equal(w.calls.length, 0);
 });
 

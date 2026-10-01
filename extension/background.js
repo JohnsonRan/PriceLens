@@ -149,7 +149,6 @@ async function saveSettings(message) {
   // Write synced settings first: sync is the write that can fail (quota/rate), and must not leave AI consent half-applied.
   const settings = settingsFrom(input);
   const { jevEnabled, ...synced } = settings;
-  await chrome.storage.sync.remove("jevSavingsEnabled");
   await chrome.storage.sync.set(synced);
   if (token !== (stored.wiseToken || "")) {
     credentialRevision++;
@@ -161,7 +160,6 @@ async function saveSettings(message) {
     else await chrome.storage.local.remove("wiseToken");
   }
   await chrome.storage.local.set({ jevEnabled });
-  await chrome.storage.local.remove("jevSavingsEnabled"); // Retired 0.1 experiment flag.
   if (jevKey) await chrome.storage.local.set({ jevKey });
   else await chrome.storage.local.remove("jevKey");
   // AI consent is device-local, so notify tabs explicitly instead of relying on sync events.
