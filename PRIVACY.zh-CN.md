@@ -2,7 +2,7 @@
 
 [English](PRIVACY.md) · **简体中文**
 
-适用版本：0.4.0；更新日期：2026-10-01。维护者：[JohnsonRan / PriceLens](https://github.com/JohnsonRan/PriceLens)。
+适用版本：0.4.1；更新日期：2026-10-01。维护者：[JohnsonRan / PriceLens](https://github.com/JohnsonRan/PriceLens)。
 
 PriceLens 在网页原价旁显示货币换算估算。普通换算无需账户；可选的 AI 默认关闭。参考标价差只在本地计算，不使用 AI，不发送网页内容。
 
