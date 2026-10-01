@@ -42,6 +42,12 @@
   let shadowSheet; // undefined: not loaded yet; null: unavailable, so shadow roots are left alone.
   const hostOf = (node) => node.parentNode || node.host || null;
   const holds = (outer, node) => { for (let n = node; n; n = hostOf(n)) if (n === outer) return true; return false; };
+  const related = (a, b) => holds(a, b) || holds(b, a);
+  const touchesAny = (roots, node) => [...roots].some((root) => related(root, node));
+  const elementOf = (node) => node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  const shown = (el) => el.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) !== false;
+  // Emails and phone-like digit runs are stripped from context snippets before any use.
+  const redact = (text) => text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已移除]").replace(/\+?\d[\d ()-]{7,}\d/g, "[长数字已移除]");
   const composedParent = (el) => el.parentElement || el.getRootNode().host || null;
   function composedOrder(a, b) {
     const chain = (n) => { const c = [n]; for (let r = n.getRootNode(); r instanceof ShadowRoot; r = r.host.getRootNode()) c.push(r.host); return c; };
@@ -149,7 +155,7 @@
   function resetAI() { aiEpoch++; aiMemo.clear(); aiScopes.clear(); }
 
   function aiContext(anchor, original) {
-    let el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    let el = elementOf(anchor);
     if (!el || el === document.body || el.closest(`${SKIP},form,[role="form"]`) || C.isSensitivePath(location.pathname + location.hash)) return null;
     let result = null;
     for (let depth = 0; depth <= 3; depth++) {
@@ -158,14 +164,14 @@
           if (node.parentElement?.closest(`${SKIP},form,[role="form"]`)) return NodeFilter.FILTER_REJECT;
           // Keep a canonical accessible price, but not invisible neighboring policy text.
           const priceCopy = anchor.contains(node) && node.data.includes(original);
-          return priceCopy || (isVisible(node) && node.parentElement.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) !== false) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          return priceCopy || (isVisible(node) && shown(node.parentElement)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         },
       });
       let text = "", node;
       while ((node = walker.nextNode()) && text.length <= 360) text += node.data;
       // Send a complete small scope, never a cropped fragment that can lose a qualifier.
       if (text.length > 360) break;
-      text = text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已移除]").replace(/\+?\d[\d ()-]{7,}\d/g, "[长数字已移除]");
+      text = redact(text);
       if (!text.includes(original) || text.length > 360) break;
       result = { context: text, scope: el };
       const parent = el.parentElement;
@@ -236,12 +242,12 @@
   function priceFilterHints() {
     const hints = [];
     for (const form of document.forms) {
-      if (!isVisible(form) || form.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) === false || form.closest(CARD)) continue;
+      if (!isVisible(form) || !shown(form) || form.closest(CARD)) continue;
       let action;
       try { action = new URL(form.getAttribute("action") || location.href, document.baseURI); } catch { continue; }
       if (action.origin !== location.origin || action.pathname !== location.pathname) continue;
       const name = (input) => input.name.toLowerCase().replace(/[_-]/g, "");
-      const bounds = [...form.querySelectorAll("input[name]")].filter((input) => ["text", "number", "range"].includes(input.type) && input.getClientRects().length && input.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) !== false && /^(?:(?:min|max)(?:price|p)|(?:price|p)(?:min|max))$/.test(name(input)));
+      const bounds = [...form.querySelectorAll("input[name]")].filter((input) => ["text", "number", "range"].includes(input.type) && input.getClientRects().length && shown(input) && /^(?:(?:min|max)(?:price|p)|(?:price|p)(?:min|max))$/.test(name(input)));
       if (bounds.length !== 2) continue;
       const lower = bounds.find((input) => name(input).includes("min"));
       const upper = lower && bounds.find((input) => name(input) === name(lower).replace("min", "max"));
@@ -250,7 +256,7 @@
       while (group !== form && !group.contains(upper)) group = group.parentElement;
       // Only fixed, visible unit labels beside a same-page price filter; never input values or ad currency.
       const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT, {
-        acceptNode: (node) => node.parentElement.closest(`${SKIP},button`) || !isVisible(node.parentElement) || node.parentElement.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) === false ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+        acceptNode: (node) => node.parentElement.closest(`${SKIP},button`) || !isVisible(node.parentElement) || !shown(node.parentElement) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
       });
       let node;
       while ((node = walker.nextNode())) {
@@ -382,7 +388,7 @@
     // ponytail: one viewport of margin above and below; widen it if fast scrolling shows late badges.
     const rect = sourceRect(anchor);
     if (rect.bottom >= -innerHeight && rect.top <= innerHeight * 2) return false;
-    const target = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    const target = elementOf(anchor);
     if (!deferred.has(target)) { deferred.add(target); lazy.observe(target); }
     return true;
   }
@@ -401,7 +407,7 @@
   }
 
   function isVisible(anchor) {
-    const el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    const el = elementOf(anchor);
     return Boolean(el?.isConnected && !el.closest(SKIP) && !visuallyClipped(el) && [...el.getClientRects()].some((rect) => rect.width > 0 && rect.height > 0) && getComputedStyle(el).visibility === "visible");
   }
 
@@ -545,7 +551,7 @@
 
   function layoutKey(anchor) {
     const parts = [];
-    let el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    let el = elementOf(anchor);
     for (let depth = 0; el && el !== document.body && depth < 5; depth++, el = el.parentElement) {
       const style = getComputedStyle(el);
       const rect = el.getBoundingClientRect();
@@ -555,7 +561,7 @@
   }
 
   function flowSnapshot(anchor) {
-    let scope = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    let scope = elementOf(anchor);
     while (scope && scope !== document.body && ["inline", "inline-block", "contents"].includes(getComputedStyle(scope).display)) scope = scope.parentElement;
     if (!scope || scope === document.body || scope === document.documentElement) return null;
     const lines = [];
@@ -669,7 +675,7 @@
     badge.remove();
     let target = previous;
     if (previous === anchor) {
-      let el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+      let el = elementOf(anchor);
       const original = textOf(anchor).trim();
       for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
         if (textOf(el).trim() !== original) break;
@@ -757,7 +763,7 @@
       // plain label goes inside it: a control may not contain another control, and a click keeps opening the product.
       // Once a label, it stays one while the price stays inside a control, so re-renders do not retry failed spots.
       const reused = old[badges.length];
-      const control = Boolean((anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement)?.closest(CONTROL));
+      const control = Boolean(elementOf(anchor)?.closest(CONTROL));
       let badge = reused && (control || reused.tagName !== "SPAN") ? reused : makeBadge(false);
       if (badge !== reused) dropBadge(reused);
       badgeAnchors.set(badge, anchor);
@@ -813,7 +819,7 @@
   }
 
   function isStruck(anchor, price) {
-    const el = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
+    const el = elementOf(anchor);
     const decorated = (node) => {
       for (let parent = node; parent && parent !== document.body; parent = parent.parentElement) {
         if (parent.matches("s,del") || getComputedStyle(parent).textDecorationLine.includes("line-through")) return true;
@@ -854,7 +860,7 @@
   function amountIndex() {
     const index = new Map();
     for (const [unit, { prices }] of priceUnits) {
-      for (let el = unit.nodeType === Node.ELEMENT_NODE ? unit : unit.parentElement; el && el !== document.body; el = el.parentElement) {
+      for (let el = elementOf(unit); el && el !== document.body; el = el.parentElement) {
         if (!index.has(el)) index.set(el, new Set());
         for (const price of prices) index.get(el).add(`${price.currency}:${price.amount}`);
       }
@@ -916,7 +922,7 @@
     }
     const values = [...unique.values()];
     if (values.length < 2 || values.length > 4) return null;
-    const context = text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已移除]").replace(/\+?\d[\d ()-]{7,}\d/g, "[长数字已移除]");
+    const context = redact(text);
     if (context.length > 360 || values.some(({ price }) => !context.includes(price.original))) return null;
     for (const { anchor } of values) visibilityTargets.set(anchor, isVisible(anchor));
     return { anchors: values.map((value) => value.anchor), candidate: { context, currencyHint: values[0].price.currency, candidates: values.map(({ price, struck }) => ({ original: price.original, group: "item", struck })) } };
@@ -929,9 +935,9 @@
     const scopes = new Set();
     let index;
     headed = new WeakMap();
-    for (const scope of savingsRecords.keys()) if (roots.some((root) => holds(scope, root) || holds(root, scope))) scopes.add(scope);
+    for (const scope of savingsRecords.keys()) if (touchesAny(roots, scope)) scopes.add(scope);
     for (const anchor of priceUnits.keys()) {
-      if (!roots.some((root) => holds(root, anchor) || holds(anchor, root))) continue;
+      if (!touchesAny(roots, anchor)) continue;
       const scope = savingsScope(anchor, index ??= amountIndex());
       if (scope) scopes.add(scope);
     }
@@ -956,7 +962,7 @@
   function queueAIContexts(root) {
     for (const scope of aiScopes) {
       if (!scope.isConnected) aiScopes.delete(scope);
-      else if (holds(scope, root) || holds(root, scope)) pending.add(scope);
+      else if (related(scope, root)) pending.add(scope);
     }
     if (pending.size > 100) { pending.clear(); pending.add(document.body); }
   }
@@ -964,7 +970,7 @@
   function queue(root) {
     if (!table || !root?.isConnected) return;
     queueAIContexts(root);
-    pending.add(root.nodeType === Node.TEXT_NODE ? root.parentElement : root);
+    pending.add(root.nodeType === Node.TEXT_NODE ? root.parentElement : root); // A ShadowRoot stays itself.
     if (pending.size > 100) { pending.clear(); pending.add(document.body); }
     schedule();
   }
@@ -991,20 +997,20 @@
     }
     for (const [anchor, visible] of visibilityTargets) {
       if (!anchor.isConnected) { visibilityTargets.delete(anchor); blockedPlacements.delete(anchor); continue; }
-      if ([...visibilityRoots].some((root) => holds(root, anchor) || holds(anchor, root))) {
+      if (touchesAny(visibilityRoots, anchor)) {
         const next = isVisible(anchor);
         const layout = blockedPlacements.get(anchor) ?? records.get(anchor)?.layout;
         const layoutChanged = layout !== undefined && layout !== layoutKey(anchor);
-        if (next !== visible || layoutChanged || records.get(anchor)?.badges.some((badge) => badge.isConnected && !fits(badge))) pending.add(anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor);
+        if (next !== visible || layoutChanged || records.get(anchor)?.badges.some((badge) => badge.isConnected && !fits(badge))) pending.add(elementOf(anchor));
         visibilityTargets.set(anchor, next);
       }
     }
     if (settings.savingsEnabled) for (const [anchor, unit] of priceUnits) {
-      if (anchor.isConnected && [...visibilityRoots].some((root) => holds(root, anchor) || holds(anchor, root)) && unit.struck.some((struck, i) => struck !== isStruck(anchor, unit.prices[i]))) pending.add(anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor);
+      if (anchor.isConnected && touchesAny(visibilityRoots, anchor) && unit.struck.some((struck, i) => struck !== isStruck(anchor, unit.prices[i]))) pending.add(elementOf(anchor));
     }
     for (const [scope, record] of savingsRecords) {
       if (!scope.isConnected) { removeRecord(scope, savingsRecords); continue; }
-      if ([...visibilityRoots].some((root) => holds(root, scope) || holds(scope, root)) && (!isVisible(record.anchor) || record.badges.some((badge) => badge.isConnected && !fits(badge)))) pending.add(scope);
+      if (touchesAny(visibilityRoots, scope) && (!isVisible(record.anchor) || record.badges.some((badge) => badge.isConnected && !fits(badge)))) pending.add(scope);
     }
     visibilityRoots.clear();
     const version = revision;
@@ -1015,13 +1021,13 @@
     const affected = new Set();
     for (const store of [records, skipped]) for (const anchor of store.keys()) {
       if (!anchor.isConnected) removeRecord(anchor);
-      else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affected.add(anchor);
+      else if (touchesAny(topRoots, anchor)) affected.add(anchor);
     }
     const seen = new Set(), unitsSeen = new Set();
     const affectedUnits = [];
     for (const anchor of priceUnits.keys()) {
       if (!anchor.isConnected) priceUnits.delete(anchor);
-      else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affectedUnits.push(anchor);
+      else if (touchesAny(topRoots, anchor)) affectedUnits.push(anchor);
     }
     let visited = 0;
     try {
@@ -1061,7 +1067,7 @@
       for (const node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
         for (const badge of [node, ...node.querySelectorAll(".pricelens-price[data-pricelens]")]) if (badge.matches(".pricelens-price[data-pricelens]") && !badgeAnchors.has(badge)) badge.remove();
       }
-      const element = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
+      const element = elementOf(mutation.target);
       if (element?.closest(`[${MARK}]`)) continue;
       const changed = [...mutation.addedNodes, ...mutation.removedNodes];
       if (mutation.type === "childList" && changed.length && changed.every((n) => n.nodeType === Node.ELEMENT_NODE && n.hasAttribute(MARK))) continue;
