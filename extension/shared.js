@@ -26,6 +26,7 @@
   const space = "[ \\t\\u00a0\\u202f]*";
   const number = "[+−-]?\\d(?:[\\d.,'’ \\u00a0\\u202f]*\\d)?";
   const cjk = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}]";
+  const SCALE = /^[ \t\u00a0\u202f]*(?:(?:thousand|million|billion|trillion|mil|mln|mn|bn|tn|mio|mrd|m|b|k|t)s?\b|[万萬億亿千百])/iu;
   const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_]|[.,'’]\\d)|(?=${cjk}))`, "gu");
 
   // Checkout, payment, account, login, order and cart paths: no AI upload and no reference-difference labels.
@@ -91,6 +92,8 @@
       if ((!currency && !(includeUnresolved && AMBIGUOUS[token])) || (innerSymbol && !AMBIGUOUS[innerSymbol]?.includes(currency))) continue;
       const amount = parseAmount(prefixAmount || suffixAmount);
       if (amount === null || (sign && /^[+−-]/.test(prefixAmount))) continue;
+      // "£24.75 million", "$1.2 bn", "$3 M": a scale word makes the digits a fraction of the amount. Skip, never misread.
+      if (SCALE.test(text.slice(end, end + 16))) continue;
       // A trailing wave is an open-ended starting price, not a fixed amount or a closed range.
       const marker = text.slice(end).match(/^[ \t\u00a0\u202f]*[～〜]/u);
       const rest = marker ? text.slice(end + marker[0].length).trimStart() : "";

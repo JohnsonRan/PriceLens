@@ -50,6 +50,8 @@ test('sensitive paths are shared by AI and reference-difference guards', () => {
 });
 
 test('amounts that would silently scale are skipped, not misread', () => {
+  for (const text of ['a price of £24.75 million', 'US$2,765 million', '$1.2 billion', '€5 bn', '$40 M', 'USD 10 mil', '¥3000万']) assert.deepEqual(C.findPrices(text, 'USD'), [], text);
+  for (const text of ['$5 more', '$10 per million', '€12 Mo-Fr', '$20 bonus']) assert.equal(C.findPrices(text, 'USD').length, 1, `${text}: a word that only starts like a scale is not one`);
   for (const text of ['$0.125/oz', '€0,125', 'US$ 0.050', '$1.5M', '$2.5k', 'USD 19 99']) assert.deepEqual(C.findPrices(text, 'USD'), [], text);
   for (const [text, amount] of [['$0.99', 0.99], ['0,99 €', 0.99], ['$5.00.', 5], ['€10,-', 10], ['$1,000,000', 1e6], ['USD 1 299', 1299]]) assert.equal(C.findPrices(text, 'USD')[0]?.amount, amount, text);
 });
