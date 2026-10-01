@@ -31,17 +31,23 @@
     return hints;
   }
 
-  function detectPageHint(jsonLd) {
-    const hints = [document.documentElement.dataset.currency, ...priceFilterHints(), ...C.structuredCurrencies(jsonLd)];
-    // Explicit display preference metadata; never infer currency from a domain or language.
-    for (const el of document.querySelectorAll('input[type="hidden"][name="currencyOfPreference"]')) hints.push(el.value);
-    for (const el of document.querySelectorAll('meta[property="product:price:currency"],meta[property="og:price:currency"],head meta[itemprop="priceCurrency"]')) hints.push(el.content);
-    // An explicit page currency is navigation data, not a guess from domain or language.
-    if (document.querySelector(".a-price > .a-offscreen")) {
-      for (const script of document.scripts) {
-        for (const match of script.textContent.matchAll(/"currencyInfo"\s*:\s*\{\s*"code"\s*:\s*"([A-Z]{3})"/g)) hints.push(match[1]);
-      }
+  // The only storefront-specific evidence; every other rule reads generic markup. Add a site here only when it states
+  // its display currency nowhere generic, with a fixture of its real markup. Otherwise the popup's per-site currency
+  // (offered whenever prices are skipped) is the answer, not another special case.
+  const PREFERENCE_INPUT = 'input[type="hidden"][name="currencyOfPreference"]'; // Amazon: the shopper's chosen currency.
+  function storefrontHints() {
+    const hints = [...document.querySelectorAll(PREFERENCE_INPUT)].map((el) => el.value);
+    // Amazon (.a-price markup) names its display currency in nav data: {"currencyInfo":{"code":"JPY"}}.
+    if (document.querySelector(".a-price > .a-offscreen")) for (const script of document.scripts) {
+      for (const match of script.textContent.matchAll(/"currencyInfo"\s*:\s*\{\s*"code"\s*:\s*"([A-Z]{3})"/g)) hints.push(match[1]);
     }
+    return hints;
+  }
+
+  // Explicit display metadata only; never infer currency from a domain or language.
+  function detectPageHint(jsonLd) {
+    const hints = [document.documentElement.dataset.currency, ...priceFilterHints(), ...C.structuredCurrencies(jsonLd), ...storefrontHints()];
+    for (const el of document.querySelectorAll('meta[property="product:price:currency"],meta[property="og:price:currency"],head meta[itemprop="priceCurrency"]')) hints.push(el.content);
     // Inline data may only narrow: any second declared code (a switcher, a display currency) cancels every page hint,
     // including metadata ones, and an unscannable script counts as possibly conflicting.
     const data = inlineDataCurrencies();
@@ -87,5 +93,5 @@
     return roots;
   }
 
-  globalThis.PriceLensEvidence = Object.freeze({ detectPageHint, readJsonLd });
+  globalThis.PriceLensEvidence = Object.freeze({ PREFERENCE_INPUT, detectPageHint, readJsonLd });
 })();

@@ -1,7 +1,7 @@
 (() => {
   const C = PriceLens;
   const { MARK, SKIP, CARD, CURRENCY_SCOPE, HEADING, CONTROL, holds, related, touchesAny, elementOf, shown, redact, composedOrder, textOf, visuallyClipped, isVisible, sourceRect, superscriptText, crossesProducts, isStruck } = PriceLensDom;
-  const { detectPageHint, readJsonLd } = PriceLensEvidence;
+  const { PREFERENCE_INPUT, detectPageHint, readJsonLd } = PriceLensEvidence;
   const { colorCache, backgroundTheme, fits, layoutKey, placeBadge } = PriceLensPlacement;
   const records = new Map();
   const badgeAnchors = new WeakMap();
@@ -677,7 +677,7 @@
         continue;
       }
       if (mutation.type === "childList") themeRoots.add(element);
-      if (touches('input[type="hidden"][name="currencyOfPreference"]')) hintDirty = true;
+      if (touches(PREFERENCE_INPUT)) hintDirty = true;
       if (element?.closest("head,script") || mutation.attributeName === "content" || element === document.documentElement || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("meta,script") || n.querySelector("meta,script")))) hintDirty = true;
       // Metadata constrains sibling prices, not merely its own (often empty) text subtree.
       if (mutation.attributeName === "itemprop" || touches('[itemprop="priceCurrency"]')) {
