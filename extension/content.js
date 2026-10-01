@@ -328,7 +328,6 @@
       if (Object.hasOwn(C.CURRENCIES, hint)) return hint;
       if (up === scope) break;
     }
-    const manual = C.manualHint(settings, location.hostname);
     for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
       if (el === document.body) break;
       if (!hintCache.has(el)) {
@@ -342,10 +341,11 @@
       if (unique.length > 1) return "";
       if (el === scope) break;
     }
-    return manual || pageHint;
+    return C.manualHint(settings, location.hostname) || pageHint;
   }
 
   function removeRecord(anchor, store = records) {
+    if (store === records) skipped.delete(anchor);
     const record = store.get(anchor);
     if (record) for (const badge of record.badges) {
       if (badge === detailBadge) closeDetails(false);
@@ -663,9 +663,7 @@
       badge.style.removeProperty("margin-inline-start");
       if (safe()) return true;
       badge.style.marginInlineStart = "0";
-      if (startsLine() && safe()) return true;
-      badge.style.removeProperty("margin-inline-start");
-      return false;
+      return startsLine() && safe();
     };
     if (position && placedSafely()) return position;
     badge.remove();
@@ -760,12 +758,11 @@
       // Once a label, it stays one while the price stays inside a control, so re-renders do not retry failed spots.
       const reused = old[badges.length];
       const control = Boolean((anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement)?.closest(CONTROL));
-      let badge = reused?.tagName === "SPAN" && !control ? makeBadge(false) : reused || makeBadge(false);
+      let badge = reused && (control || reused.tagName !== "SPAN") ? reused : makeBadge(false);
       if (badge !== reused) dropBadge(reused);
       badgeAnchors.set(badge, anchor);
       const stale = price.currency !== settings.target && table.stale;
       const label = `${price.savings ? ` ${C.t("badgeSavings")} ` : " ≈ "}${C.formatMoney(amount, settings.target)}${price.minimum ? ` ${C.t("badgeFrom")}` : ""}${ai ? " · AI" : ""}${stale ? ` · ${C.t("badgeCache")}` : ""}`;
-      if (badge.textContent !== label) badge.textContent = label;
       const rate = table.rates[price.currency];
       const source = C.t({ wise: "sourceWise", blend: "sourceBlend" }[rate?.source ?? table.provider] ?? "sourceEcb");
       const basis = price.savings ? C.t("basisSavings", C.formatMoney(price.savings.reference.amount, price.currency), C.formatMoney(price.savings.current.amount, price.currency), C.formatMoney(price.amount, price.currency)) : `${price.original} (${price.currency})`;
@@ -1017,7 +1014,7 @@
     // Skipped-price counts follow the same units as records: dropped once detached, hidden or no longer found.
     const affected = new Set();
     for (const store of [records, skipped]) for (const anchor of store.keys()) {
-      if (!anchor.isConnected) { removeRecord(anchor); skipped.delete(anchor); }
+      if (!anchor.isConnected) removeRecord(anchor);
       else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affected.add(anchor);
     }
     const seen = new Set(), unitsSeen = new Set();
@@ -1045,7 +1042,7 @@
         }
       }
       if (version === revision && table) {
-        for (const anchor of affected) if (!seen.has(anchor)) { removeRecord(anchor); skipped.delete(anchor); }
+        for (const anchor of affected) if (!seen.has(anchor)) removeRecord(anchor);
         for (const anchor of affectedUnits) if (!unitsSeen.has(anchor)) priceUnits.delete(anchor);
         scanSavings(topRoots);
       }
@@ -1068,19 +1065,19 @@
       if (element?.closest(`[${MARK}]`)) continue;
       const changed = [...mutation.addedNodes, ...mutation.removedNodes];
       if (mutation.type === "childList" && changed.length && changed.every((n) => n.nodeType === Node.ELEMENT_NODE && n.hasAttribute(MARK))) continue;
-      const stylesheet = element?.closest("style,link[rel='stylesheet']") || changed.some((node) => node.nodeType === Node.ELEMENT_NODE && (node.matches("style,link[rel='stylesheet']") || node.querySelector("style,link[rel='stylesheet']")));
-      if (stylesheet) queueAppearance();
+      const touches = (sel) => element?.closest(sel) || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches(sel) || n.querySelector(sel)));
+      if (touches("style,link[rel='stylesheet']")) queueAppearance();
       // Forms hold price-filter units; a currency <select> may sit outside any form.
-      if (element?.closest("form,select") || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("form,select") || n.querySelector("form,select")))) hintDirty = true;
+      if (touches("form,select")) hintDirty = true;
       if (mutation.type === "attributes" && ["class", "style", "data-theme", "data-color-mode", "data-color-scheme", "data-bs-theme"].includes(mutation.attributeName)) {
         queueAppearance(element);
         continue;
       }
       if (mutation.type === "childList") themeRoots.add(element);
-      if (element?.matches('input[type="hidden"][name="currencyOfPreference"]') || changed.some((node) => node.nodeType === 1 && (node.matches('input[type="hidden"][name="currencyOfPreference"]') || node.querySelector('input[type="hidden"][name="currencyOfPreference"]')))) hintDirty = true;
+      if (touches('input[type="hidden"][name="currencyOfPreference"]')) hintDirty = true;
       if (element?.closest("head,script") || mutation.attributeName === "content" || element === document.documentElement || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("meta,script") || n.querySelector("meta,script")))) hintDirty = true;
       // Metadata constrains sibling prices, not merely its own (often empty) text subtree.
-      if (element?.closest('[itemprop="priceCurrency"]') || mutation.attributeName === "itemprop" || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches('[itemprop="priceCurrency"]') || n.querySelector('[itemprop="priceCurrency"]')))) {
+      if (mutation.attributeName === "itemprop" || touches('[itemprop="priceCurrency"]')) {
         queue(element?.closest(CURRENCY_SCOPE) || document.body);
       }
       queue(mutation.target);

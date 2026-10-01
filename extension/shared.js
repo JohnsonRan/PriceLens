@@ -208,7 +208,7 @@
   const DATA_CURRENCY = new RegExp(String.raw`\b(\w{0,40}[cC]urrenc(?:y|ies)\w{0,40})${K}\s*[:=]\s*(?:${Q}([A-Za-z]{3})${Q}|(\{[^{}]{0,200}\}|\[[^\[\]]{0,600}\]))`, "g");
   // Inside an object or list every code counts: {code: "USD", active: "CAD"} is two currencies, not the first one.
   const QUOTED_CODE = new RegExp(String.raw`${Q}([A-Za-z]{3})${Q}`, "g");
-  const ISO = new Set(Intl.supportedValuesOf?.("currency") ?? CODES);
+  const ISO = new Set(Intl.supportedValuesOf("currency"));
   const CODE_KEY = String.raw`${Q}(?:currency|currencyCode|currency_code)${Q}\s*:\s*${Q}([A-Z]{3})${Q}`;
   const AMOUNT_KEY = String.raw`${Q}(?:\w{0,40}[Pp]rice|[Aa]mount|[Vv]alue|[Mm]srp)${Q}\s*:\s*(?:${Q})?\d[\d,]{0,20}(?:\.\d{1,4})?`;
   const PRICE_CURRENCY = new RegExp(String.raw`${CODE_KEY}[^{}]{0,400}?${AMOUNT_KEY}|${AMOUNT_KEY}[^{}]{0,400}?${CODE_KEY}|${Q}(?:priceCurrency|price_currency)${Q}\s*:\s*${Q}([A-Z]{3})${Q}`, "g");
