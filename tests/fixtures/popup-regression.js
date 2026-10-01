@@ -1,12 +1,16 @@
 // Injected before the actual popup scripts: real DOM/CSS, isolated mock Chrome APIs, no live credentials/network.
+const tabMessages = [];
 let saved, granted = true, hasToken = false;
+// pageStatus replies: the page is still scanning at first, then settles; later tests change the settled reply.
+const settledStatus = { ok: true, active: true, skipped: 5, symbols: ['$', '¥'], pending: false };
+const statusReplies = [{ ...settledStatus, skipped: 0, pending: true }];
 const messages = [], permissions = [], errors = [];
 window.addEventListener('error', (event) => errors.push(event.message));
 window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
 const response = () => ({ ok: true, settings: { ...saved }, hasToken, hasJevKey: true, jevStatus: { state: 'idle', message: '尚未调用模型' } });
 globalThis.chrome = { get i18n() { return window.PL_I18N; }, // injected after this script in the popup head
   permissions: { request: async (options) => { permissions.push(options); return granted; } },
-  tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async () => {} },
+  tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async (id, message, options) => { tabMessages.push([message, options]); return message.type === 'pageStatus' ? statusReplies.shift() ?? { ...settledStatus } : undefined; } },
   runtime: { getManifest: () => ({ version: '9.8.7' }), sendMessage: async (message) => {
     messages.push(message);
     saved ||= { ...PriceLens.DEFAULTS, jevEnabled: true };
@@ -35,9 +39,24 @@ window.addEventListener('load', async () => {
     check('help and privacy links open the Chinese docs', [...document.querySelectorAll('[data-i18n-href]')].every((a) => /.zh-CN.md$/.test(a.href)));
     check('all secondary panels stay collapsed even with AI already enabled', [...document.querySelectorAll('details')].every((node) => !node.open));
     check('daily controls remain visible, AI/credentials/diagnostics do not', ['target', 'enabled', 'pause-site', 'status-title'].every((id) => el(id).checkVisibility()) && ['provider', 'jev-enabled', 'jev-key', 'jev-status', 'status-detail'].every((id) => !el(id).checkVisibility()));
+    check('settings stay usable while the page is still scanning', el('skip-notice').hidden && !el('refresh').disabled);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    check('a page that reports a pending scan is asked again until it settles', tabMessages.filter(([m]) => m.type === 'pageStatus').length === 2, tabMessages.length);
     // Chrome caps popups at 600px; 480 keeps the main view (incl. the quick-convert row) well inside it.
-    check('compact main view fits without scrolling', document.body.scrollHeight < 480 && document.documentElement.scrollWidth <= innerWidth, document.body.scrollHeight);
+    {
+      const withNotice = document.body.scrollHeight;
+      el('skip-notice').hidden = true;
+      const base = document.body.scrollHeight;
+      el('skip-notice').hidden = false;
+      check('compact main view fits without scrolling', base < 480 && document.documentElement.scrollWidth <= innerWidth, base);
+      check('with the skipped-price notice it still fits Chrome\'s 600px popup cap', withNotice < 560, withNotice);
+    }
     check('save is disabled before edits; refresh is available', el('save').disabled && !el('refresh').disabled);
+    check('skipped ambiguous prices on this page are reported from the top frame only', el('skip-notice').checkVisibility() && el('skip-text').textContent === '此页有 5 个价格只写了 $ ¥，无法确定币种，已跳过。' && tabMessages.some(([m, o]) => m.type === 'pageStatus' && o?.frameId === 0), el('skip-text').textContent);
+    check('only the count is a live region, not the notice with its button', el('skip-text').getAttribute('role') === 'status' && !el('skip-notice').hasAttribute('role'));
+    el('skip-action').click(); await wait();
+    check('the notice action opens this site\'s currency setting without dirtying the form', el('advanced-settings').open && document.activeElement === el('site-hint') && el('save').disabled);
+    el('advanced-settings').open = false; await wait();
     check('important secondary text stays at least 12px', ['token-state', 'jev-state', 'clear-token-row', 'clear-jev-row', 'source-badge', 'status-detail'].every(id => parseFloat(getComputedStyle(el(id)).fontSize) >= 12));
     check('advanced entry names its contents', el('advanced-settings').querySelector('summary').textContent === '汇率、识别与 AI');
     el('advanced-settings').open = true;
@@ -52,8 +71,20 @@ window.addEventListener('load', async () => {
     check('unsaved preferences use pending rather than success feedback', el('notice').dataset.tone === 'pending');
     el('save').click(); await wait();
     check('AI opt-out saves without requesting permission', !saved.jevEnabled && permissions.length === 0 && el('notice').textContent.includes('已保存') && el('save').disabled);
+    check('after a save the page status is read again', el('skip-notice').checkVisibility(), tabMessages.filter(([m]) => m.type === 'pageStatus').length);
     await new Promise((resolve) => setTimeout(resolve, 2700));
     check('the saved confirmation fades and the save bar hides', el('notice').textContent === '' && getComputedStyle(document.querySelector('.save-area')).display === 'none');
+    {
+      // A page still busy after every retry: its skipped count is about to change, so none is shown.
+      statusReplies.push(...Array.from({ length: 10 }, () => ({ ...settledStatus, pending: true })));
+      const asked = tabMessages.filter(([m]) => m.type === 'pageStatus').length;
+      el('fee').value = '0.5'; el('fee').dispatchEvent(new Event('input', { bubbles: true }));
+      el('save').click(); await new Promise((resolve) => setTimeout(resolve, 2300));
+      const retries = tabMessages.filter(([m]) => m.type === 'pageStatus').length - asked;
+      check('a page still scanning after every retry shows no skipped count', retries === 10 && el('skip-notice').hidden, retries);
+      el('fee').value = '0'; el('fee').dispatchEvent(new Event('input', { bubbles: true }));
+      el('save').click(); await wait();
+    }
     el('enabled').click(); await wait();
     check('a changed setting shows the unsaved bar', !el('save').disabled && el('notice').textContent.includes('未保存') && getComputedStyle(document.querySelector('.save-area')).display !== 'none');
     el('enabled').click(); await wait();

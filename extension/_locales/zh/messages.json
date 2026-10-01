@@ -565,5 +565,19 @@
   },
   "urlHelp": {
     "message": "https://github.com/JohnsonRan/PriceLens/blob/main/README.zh-CN.md"
+  },
+  "skipNotice": {
+    "message": "此页有 $P1$ 个价格只写了 $P2$，无法确定币种，已跳过。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "skipAction": {
+    "message": "设置此网站的币种"
   }
 }

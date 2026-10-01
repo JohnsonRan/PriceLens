@@ -6,7 +6,7 @@ let saved;
 globalThis.chrome = {
   get i18n() { return window.PL_I18N; },
   permissions: { request: async () => true },
-  tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async () => {} },
+  tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com/product' }], sendMessage: async (id, message) => message.type === 'pageStatus' ? { ok: true, active: true, skipped: 1, symbols: ['$', '¥'], pending: false } : undefined },
   runtime: { getManifest: () => ({ version: '9.8.7' }), sendMessage: async (message) => {
     saved ||= { ...PriceLens.DEFAULTS };
     const state = { ok: true, settings: { ...saved }, hasToken: false, hasJevKey: false, jevStatus: { state: 'idle', message: PriceLens.t('jevIdle') } };
@@ -35,6 +35,9 @@ window.addEventListener('load', async () => {
     check('help and privacy links open the English docs', [...document.querySelectorAll('[data-i18n-href]')].every((a) => /PRIVACY.md$|#readme$/.test(a.href)));
     check('expanded English settings have no horizontal overflow', document.documentElement.scrollWidth <= innerWidth);
     for (const node of document.querySelectorAll('details')) node.open = false;
+    check('the skipped-price notice reads well for any count, in English', el('skip-text').textContent === 'Prices skipped on this page (shown only as $ ¥): 1', el('skip-text').textContent);
+    check('with the notice the English view still fits Chrome\'s 600px popup cap', document.body.scrollHeight < 560, document.body.scrollHeight);
+    el('skip-notice').hidden = true;
     check('compact English main view fits without scrolling', document.body.scrollHeight < 480, document.body.scrollHeight);
     check('no runtime errors', errors.length === 0);
     report.completed = true;

@@ -7,6 +7,7 @@
   const badgeAnchors = new WeakMap();
   const savingsRecords = new Map();
   const priceUnits = new Map();
+  const skipped = new Map(); // Visible price unit -> one symbol ("$" or "¥") per price that no page evidence resolved.
   const PRODUCT = '[itemscope][itemtype$="/Product"],[data-product-id],[data-asin]:not([data-asin=""])';
   const CARD = `${PRODUCT},article,li,[role='listitem']`;
   const CURRENCY_SCOPE = `${CARD},[itemscope][itemtype$="/Offer"]`;
@@ -27,6 +28,7 @@
   let scanning = false;
   let revision = 0;
   let refreshId = 0;
+  let refreshing = 0;
   let hintCache = new WeakMap();
   const aiMemo = new Map();
   const aiScopes = new Set();
@@ -356,6 +358,7 @@
     if (detailBadge) closeDetails(false); // A right-click result (no badge) is not page state; leave it open.
     revision++;
     for (const store of [records, savingsRecords]) for (const anchor of store.keys()) removeRecord(anchor, store);
+    skipped.clear();
     pending.clear();
     priceUnits.clear();
     visibilityRoots.clear();
@@ -438,22 +441,34 @@
     return walk(el) ? text : null;
   }
 
+  // With AI on, symbol-only amounts ("$", "¥") are units too (AI may settle them). With AI off they are not, but the
+  // popup counts them exactly as AI would read them (same unit, visibility and lazy rules): `count` is that unit, for
+  // counting only. One walk serves both, reading each ancestor's text once; only a text with such a symbol is parsed twice.
   function unitFor(node, hint) {
+    const unresolved = settings.jevEnabled, symbol = /[$¥￥]/;
     // Read a canonical complete price; CSS-implied decimals without one remain unsupported.
-    let el = node.parentElement;
+    let el = node.parentElement, count = null;
     for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
       if (el.matches(SKIP)) break;
-      const raw = el.querySelector("sup,sub") ? superscriptText(el) : textOf(el, !visuallyClipped(el));
+      const clipped = visuallyClipped(el);
+      const raw = el.querySelector("sup,sub") ? superscriptText(el) : textOf(el, !clipped);
       if (raw === null) break;
       const text = raw.trim();
       if (text.length > 100) break;
-      const prices = C.findPrices(text, hint, settings.jevEnabled);
-      if (prices.length === 1 && ((prices[0].start === 0 && prices[0].end === text.length) || visuallyClipped(el))) return visibleUnit(el, prices);
+      const whole = (prices) => prices.length === 1 && ((prices[0].start === 0 && prices[0].end === text.length) || clipped);
+      const prices = C.findPrices(text, hint, unresolved);
+      if (whole(prices)) return visibleUnit(el, prices);
+      if (!unresolved && !count && symbol.test(text)) {
+        const all = C.findPrices(text, hint, true);
+        if (whole(all)) count = visibleUnit(el, all);
+      }
     }
     // "USD 19" directly followed by a superscript that is not accepted above is a truncated amount, not USD 19.
     const next = node.nextSibling;
-    if (/\d\s*$/.test(node.data) && next?.nodeType === Node.ELEMENT_NODE && next.matches("sup,sub") && /^\s*\d/.test(next.textContent)) return { anchor: node, prices: [] };
-    return { anchor: node, prices: C.findPrices(node.data, hint, settings.jevEnabled) };
+    if (/\d\s*$/.test(node.data) && next?.nodeType === Node.ELEMENT_NODE && next.matches("sup,sub") && /^\s*\d/.test(next.textContent)) return { anchor: node, prices: [], count };
+    const prices = C.findPrices(node.data, hint, unresolved);
+    if (!prices.length && !unresolved && !count && symbol.test(node.data)) count = { anchor: node, prices: C.findPrices(node.data, hint, true) };
+    return { anchor: node, prices, count };
   }
 
   function sourceRect(anchor) {
@@ -657,8 +672,11 @@
   function annotate(node, seen, unitsSeen) {
     const parent = node.parentElement;
     if (!node.isConnected || !parent || parent.closest(SKIP) || covered(node, seen) || !node.data.trim() || node.data.length > 5000) return;
-    const { anchor, prices } = unitFor(node, hintFor(node));
+    const hint = hintFor(node);
+    let { anchor, prices, count } = unitFor(node, hint);
     if (prices.length) { priceUnits.set(anchor, { node, prices, struck: settings.savingsEnabled ? prices.map((price) => isStruck(anchor, price)) : [] }); unitsSeen.add(anchor); }
+    // Without AI a symbol-only amount is no price unit; renderPrices only counts it for the popup's site-currency hint.
+    else if (count) ({ anchor, prices } = count);
     if (covered(anchor, seen)) return;
     const visible = isVisible(anchor);
     if (prices.length) visibilityTargets.set(anchor, visible);
@@ -668,6 +686,8 @@
     renderPrices(anchor, prices);
   }
 
+  // Only "$", "¥" and "￥" stay unresolved; "￥" and a starting-price "～" are no different symbol to the user.
+  const symbolOf = (price) => /[¥￥]/.test(price.original) ? "¥" : "$";
   const CONTROL = 'a[href],button,summary,[role="button"],[role="link"]';
   // label: a non-interactive span for inside a host control; otherwise a button that opens the details dialog.
   function makeBadge(label) {
@@ -693,12 +713,18 @@
     const badges = [];
     const positions = [];
     let blocked = false;
+    const ambiguous = [];
     let previous = store === savingsRecords ? records.get(anchor)?.badges.at(-1) || anchor : anchor;
     for (const candidate of prices) {
       const price = { ...candidate };
       const ai = !price.currency;
       if (ai) price.currency = aiCurrency(anchor, price);
-      if (!price.currency || (price.currency === settings.target && !price.savings)) continue;
+      if (!price.currency) {
+        // Symbol only ("$", "¥"), with AI off or unsettled by it: the popup offers this site's currency for these.
+        if (store === records) ambiguous.push(symbolOf(price));
+        continue;
+      }
+      if (price.currency === settings.target && !price.savings) continue;
       const amount = price.currency === settings.target ? price.amount : C.convert(price.amount, price.currency, table, settings.feePercent);
       if (amount === null || !Number.isFinite(amount)) continue;
       // A price inside a host link/button first tries a details button outside that control. If that cannot fit, a
@@ -749,6 +775,10 @@
       badges.push(badge);
     }
     for (const badge of old) if (!badges.includes(badge)) dropBadge(badge);
+    if (store === records) {
+      if (ambiguous.length) skipped.set(anchor, ambiguous);
+      else skipped.delete(anchor);
+    }
     if (badges.length) store.set(key, { badges, positions, anchor, layout: layoutKey(anchor) });
     else store.delete(key);
     if (store === records) {
@@ -956,10 +986,11 @@
     const roots = [...pending].filter((root) => root?.isConnected);
     pending.clear();
     const topRoots = roots.filter((root) => !roots.some((other) => other !== root && holds(other, root)));
-    const affected = [];
-    for (const anchor of records.keys()) {
-      if (!anchor.isConnected) removeRecord(anchor);
-      else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affected.push(anchor);
+    // Skipped-price counts follow the same units as records: dropped once detached, hidden or no longer found.
+    const affected = new Set();
+    for (const store of [records, skipped]) for (const anchor of store.keys()) {
+      if (!anchor.isConnected) { removeRecord(anchor); skipped.delete(anchor); }
+      else if (topRoots.some((root) => holds(root, anchor) || holds(anchor, root))) affected.add(anchor);
     }
     const seen = new Set(), unitsSeen = new Set();
     const affectedUnits = [];
@@ -986,7 +1017,7 @@
         }
       }
       if (version === revision && table) {
-        for (const anchor of affected) if (!seen.has(anchor)) removeRecord(anchor);
+        for (const anchor of affected) if (!seen.has(anchor)) { removeRecord(anchor); skipped.delete(anchor); }
         for (const anchor of affectedUnits) if (!unitsSeen.has(anchor)) priceUnits.delete(anchor);
         scanSavings(topRoots);
       }
@@ -1032,6 +1063,7 @@
 
   async function refresh() {
     const id = ++refreshId;
+    refreshing++; // Until the rescan is queued, pageStatus must not report the old counts as settled.
     try {
       const state = await chrome.runtime.sendMessage({ type: "getState" });
       if (id !== refreshId) return;
@@ -1040,7 +1072,7 @@
       const settingsChanged = JSON.stringify(next) !== JSON.stringify(settings);
       const routeChanged = next.target !== settings.target || next.provider !== settings.provider;
       settings = next;
-      if (settingsChanged) { resetAI(); revision++; }
+      if (settingsChanged) { resetAI(); revision++; skipped.clear(); }
       if (routeChanged) { clear(); table = null; }
       if (!settings.enabled || settings.excludedHosts.includes(location.hostname)) { clear(); table = null; return; }
       const response = await chrome.runtime.sendMessage({ type: "getRates" });
@@ -1057,11 +1089,21 @@
     } catch {
       if (id === refreshId) { clear(); table = null; }
       // Fail closed: never replace original prices or show invented conversion rates.
-    }
+    } finally { refreshing--; }
   }
 
   chrome.storage.onChanged.addListener((_, area) => { if (area === "sync") refresh(); });
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === "pageStatus") {
+      // Only symbols and counts leave this page, and only to this extension's popup.
+      const symbols = new Set();
+      let count = 0;
+      for (const [anchor, marks] of skipped) if (anchor.isConnected) { count += marks.length; for (const mark of marks) symbols.add(mark); }
+      // pending: a scan or AI answer is still due, so the popup asks again instead of showing a count about to change.
+      const busy = refreshing > 0 || scanning || Boolean(timer) || [...aiMemo.values()].some((entry) => entry.pending);
+      sendResponse({ ok: true, active: Boolean(table), skipped: count, symbols: [...symbols].sort(), pending: busy });
+      return;
+    }
     if (message?.type === "refresh") {
       if (message.resetJev) { resetAI(); revision++; queue(document.body); }
       refresh();

@@ -565,5 +565,19 @@
   },
   "urlHelp": {
     "message": "https://github.com/JohnsonRan/PriceLens#readme"
+  },
+  "skipNotice": {
+    "message": "Prices skipped on this page (shown only as $P2$): $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "skipAction": {
+    "message": "Set this site's currency"
   }
 }

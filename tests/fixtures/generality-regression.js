@@ -13,7 +13,9 @@ const table = { provider: 'ecb', target: 'CNY', fetchedAt: Date.now(), stale: fa
 }
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
-window.chrome = { i18n: window.PL_I18N, runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings: { ...settings } } : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
+// Mock Jev: settles only "$13" (as USD); every other symbol-only price stays unsure.
+const jev = m => ({ ok: true, decisions: m.candidates.map(c => c.original === '$13' ? 'USD' : null) });
+window.chrome = { i18n: window.PL_I18N, runtime: { sendMessage: async m => m.type === 'getState' ? { ok: true, settings: { ...settings } } : m.type === 'inferJev' ? jev(m) : { ok: true, table }, onMessage: { addListener: fn => listeners.push(fn) } }, storage: { onChanged: { addListener() {} } } };
 window.addEventListener('load', async () => {
   const result = { completed: false, systemDark: matchMedia('(prefers-color-scheme: dark)').matches, checks: [] };
   const el = id => document.getElementById(id);
@@ -25,6 +27,11 @@ window.addEventListener('load', async () => {
   const amounts = id => badges(id).map(n => n.textContent.trim());
   const wait = () => new Promise(resolve => setTimeout(resolve, 280));
   const check = (name, pass, detail) => result.checks.push({ name, pass: Boolean(pass), detail });
+  const send = (message) => { let reply; listeners.forEach(fn => fn(message, {}, (r) => { reply = r; })); return reply; };
+  const pageStatus = () => send({ type: 'pageStatus' });
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  // Until the page reports no scan or AI answer due (bounded).
+  const settle = async () => { for (let i = 0; i < 100 && (!i || pageStatus()?.pending); i++) await sleep(20); };
   try {
     await wait();
     check('a far wrapper\x27s data-currency outside any card is not this price\x27s currency', badges('deep-wrapper').length === 0, amounts('deep-wrapper'));
@@ -94,11 +101,48 @@ window.addEventListener('load', async () => {
     check('removing last metadata removes conversion', badges('dynamic').length === 0, amounts('dynamic'));
     el('currency-text').firstChild.data = 'CAD'; await wait();
     check('text metadata mutation updates price', amounts('text-metadata').some(t => t.includes('40.00')), amounts('text-metadata'));
+    {
+      const status = pageStatus();
+      check('page status counts visible prices skipped for an ambiguous symbol (two cards, the metadata-less dynamic price and the far-wrapper price), with symbols and counts only', status?.active && status.skipped === 4 && JSON.stringify(status.symbols) === '["$"]' && status.pending === false && Object.keys(status).sort().join() === 'active,ok,pending,skipped,symbols', status);
+    }
     settings.siteHints = { [location.hostname]: 'USD' }; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
+    check('setting this site\'s currency clears the skipped count', pageStatus()?.skipped === 0, pageStatus());
     check('this site\x27s currency resolves an otherwise ambiguous $', amounts('unknown').some(t => t.includes('80.00')), amounts('unknown'));
     check('the user\x27s site currency never overrides a card\x27s own markup, however deep the price sits', amounts('known').some(t => t.includes('40.00')) && amounts('deep-card').some(t => t.includes('20.00')), [amounts('known'), amounts('deep-card')]);
     settings.siteHints = {}; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
     check('removing the site currency goes back to skipping', badges('unknown').length === 0, amounts('unknown'));
+    {
+      // One counting path with AI on and off: the same units, visibility rules and symbols.
+      const counts = async () => {
+        const base = pageStatus().skipped, out = {};
+        el('spellings').hidden = false; await settle();
+        out.spellings = pageStatus().skipped - base; out.symbols = pageStatus().symbols.join(' ');
+        el('spellings').hidden = true; await settle();
+        out.spellingsHidden = pageStatus().skipped - base;
+        el('slide-a').style.display = 'block'; await settle();
+        out.slideA = pageStatus().skipped - base;
+        el('slide-a').style.display = 'none'; el('slide-b').style.display = 'block'; await settle();
+        out.slideB = pageStatus().skipped - base;
+        el('slide-b').style.display = 'none'; await settle();
+        out.slidesHidden = pageStatus().skipped - base;
+        out.pending = pageStatus().pending;
+        return out;
+      };
+      el('ai-toggle').hidden = false; await settle();
+      const total = pageStatus().skipped;
+      const off = await counts();
+      check('without AI, suffix, split, superscript and range spellings count per price, with symbols normalised to $ and ¥', off.spellings === 7 && off.symbols === '$ ¥' && off.spellingsHidden === 0, off);
+      check('without AI, a carousel slide counts only while it is shown', off.slideA === 1 && off.slideB === 1 && off.slidesHidden === 0 && off.pending === false, off);
+      settings.jevEnabled = true; listeners.forEach(fn => fn({ type: 'refresh' }));
+      check('a settings change reports a pending scan instead of a settled count', pageStatus().pending === true, pageStatus());
+      await settle(); await settle();
+      check('turning AI on: a price it settles converts and is no longer counted as skipped', amounts('ai-toggle').some(t => t.includes('104.00') && t.includes('AI')) && pageStatus().skipped === total - 1 && pageStatus().pending === false, [amounts('ai-toggle'), pageStatus(), total]);
+      const on = await counts();
+      check('with AI on (unsure about these), exactly the same prices are counted', JSON.stringify(on) === JSON.stringify(off), [on, off]);
+      settings.jevEnabled = false; listeners.forEach(fn => fn({ type: 'refresh' })); await settle();
+      check('turning AI off again counts that price once more, exactly once', badges('ai-toggle').length === 0 && pageStatus().skipped === total, [pageStatus(), total]);
+      el('ai-toggle').hidden = true; await settle();
+    }
     settings.feePercent = 10; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
     check('card fee is added to cross-currency badges and explained', amounts('known').some(t => t.includes('44.00')) && badges('known')[0].title.includes('10%'), amounts('known'));
     settings.feePercent = 0; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();

@@ -74,6 +74,31 @@ async function notifyPage() {
   if (activeTab?.id) await chrome.tabs.sendMessage(activeTab.id, { type: "refresh" }).catch(() => {});
 }
 
+// Prices on this page that only show "$" or "¥" and no page evidence resolved: point to the one setting that does.
+async function pageNotice() {
+  $("skip-notice").hidden = true;
+  if (!activeTab?.id || !hostname || !state.settings.enabled || state.settings.excludedHosts.includes(hostname)) return;
+  let status;
+  // The page may still be scanning (just opened, or rescanning after a save): ask again, a bounded number of times,
+  // until it reports settled counts.
+  for (let tries = 0; tries < 10; tries++) {
+    if (tries) await new Promise((resolve) => setTimeout(resolve, 200));
+    status = await chrome.tabs.sendMessage(activeTab.id, { type: "pageStatus" }, { frameId: 0 }).catch(() => null);
+    if (!status?.pending) break;
+  }
+  // Still busy after every retry (a page that keeps animating, AI still answering): that count is about to change,
+  // so show none rather than one that may include prices AI is about to settle.
+  if (!status?.active || status.pending || !(status.skipped > 0) || !Array.isArray(status.symbols)) return;
+  const symbols = status.symbols.filter((mark) => typeof mark === "string" && mark.length <= 4).join(" ");
+  $("skip-text").textContent = C.t("skipNotice", status.skipped, symbols || "$");
+  $("skip-notice").hidden = false;
+}
+$("skip-action").addEventListener("click", () => {
+  $("advanced-settings").open = true;
+  $("site-hint").focus();
+  $("site-hint").scrollIntoView({ block: "center" });
+});
+
 async function showRates(force = false) {
   $("status-title").textContent = C.t("statusLoading");
   $("source-badge").textContent = state.settings.provider === "wise" ? "WISE" : C.t("badgeCentralBank");
@@ -143,6 +168,7 @@ $("settings-form").addEventListener("submit", async (event) => {
     notice(C.t("noticeSaved"));
     await showRates();
     await notifyPage();
+    void pageNotice();
   } catch (error) {
     notice(error.message, true);
   } finally { busy = false; controls(); }
@@ -192,6 +218,7 @@ $("refresh").addEventListener("click", async () => {
     aiUI();
     baseline = formState();
     await showRates();
+    void pageNotice(); // May retry for a while; the settings stay usable meanwhile.
   } catch (error) {
     notice(error.message, true);
     $("status-title").textContent = C.t("statusConnectFailed");
