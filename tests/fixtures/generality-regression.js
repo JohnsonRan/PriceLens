@@ -27,6 +27,7 @@ window.addEventListener('load', async () => {
   const check = (name, pass, detail) => result.checks.push({ name, pass: Boolean(pass), detail });
   try {
     await wait();
+    check('a far wrapper\x27s data-currency outside any card is not this price\x27s currency', badges('deep-wrapper').length === 0, amounts('deep-wrapper'));
     check('currency evidence never crosses product cards', badges('unknown').length === 0, amounts('unknown'));
     check('own card currency still converts', amounts('known').some(t => t.includes('40.00')), amounts('known'));
     check('currency evidence never crosses sibling Offers', badges('unknown-offer').length === 0, amounts('unknown-offer'));
@@ -82,8 +83,9 @@ window.addEventListener('load', async () => {
     check('removing last metadata removes conversion', badges('dynamic').length === 0, amounts('dynamic'));
     el('currency-text').firstChild.data = 'CAD'; await wait();
     check('text metadata mutation updates price', amounts('text-metadata').some(t => t.includes('40.00')), amounts('text-metadata'));
-    settings.siteHints = { [location.hostname]: 'CAD' }; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
-    check('this site\x27s currency resolves an otherwise ambiguous $', amounts('unknown').some(t => t.includes('40.00')), amounts('unknown'));
+    settings.siteHints = { [location.hostname]: 'USD' }; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
+    check('this site\x27s currency resolves an otherwise ambiguous $', amounts('unknown').some(t => t.includes('80.00')), amounts('unknown'));
+    check('the user\x27s site currency never overrides a card\x27s own markup, however deep the price sits', amounts('known').some(t => t.includes('40.00')) && amounts('deep-card').some(t => t.includes('20.00')), [amounts('known'), amounts('deep-card')]);
     settings.siteHints = {}; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
     check('removing the site currency goes back to skipping', badges('unknown').length === 0, amounts('unknown'));
     settings.feePercent = 10; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();

@@ -190,6 +190,50 @@
     return currencies;
   }
 
+  // Inline page data (app state, analytics, storefront config, currency switchers) can name currencies two ways:
+  // - `all`: every code any *currency* key declares, in any quoting (JSON, escaped RSC JSON, JS object literals with
+  //   single quotes), any case, or nested as {code: ...}/{active: ...}. Any second code vetoes the page hint, so this
+  //   side is deliberately broad: widening it can only make PriceLens convert less.
+  // - `positive`: a code tied to a price, i.e. a currency key and a numeric price/amount key in the same object
+  //   (no brace between them), or an explicit priceCurrency. Only this side can supply a page hint.
+  // All quantifiers are bounded: the scan runs on every page's inline scripts, and unbounded \w* or \\* made long
+  // hex or backslash runs take seconds.
+  const Q = String.raw`\\{0,8}['"]`; // A quote, possibly escaped (RSC payloads nest JSON inside JS strings).
+  const K = String.raw`(?:\\{0,8}['"])?`; // Keys may be unquoted in JS object literals.
+  // A marketplace's default currency is not what it displays (Amazon: currencyIsoCode is the shopper's chosen
+  // currency, defaultCurrencyIsoCode the marketplace's), so only such keys are left out. Other names (store, shop, base,
+  // settlement) are used by some platforms for the displayed currency, so they stay in and can veto.
+  const DEFAULT_KEY = /default|fallback/i;
+  // A currency key with one code, an object ({code, active, iso, ...}) or a list (supported currencies).
+  const DATA_CURRENCY = new RegExp(String.raw`\b(\w{0,40}[cC]urrenc(?:y|ies)\w{0,40})${K}\s*[:=]\s*(?:${Q}([A-Za-z]{3})${Q}|(\{[^{}]{0,200}\}|\[[^\[\]]{0,600}\]))`, "g");
+  // Inside an object or list every code counts: {code: "USD", active: "CAD"} is two currencies, not the first one.
+  const QUOTED_CODE = new RegExp(String.raw`${Q}([A-Za-z]{3})${Q}`, "g");
+  const ISO = new Set(Intl.supportedValuesOf?.("currency") ?? CODES);
+  const CODE_KEY = String.raw`${Q}(?:currency|currencyCode|currency_code)${Q}\s*:\s*${Q}([A-Z]{3})${Q}`;
+  const AMOUNT_KEY = String.raw`${Q}(?:\w{0,40}[Pp]rice|[Aa]mount|[Vv]alue|[Mm]srp)${Q}\s*:\s*(?:${Q})?\d[\d,]{0,20}(?:\.\d{1,4})?`;
+  const PRICE_CURRENCY = new RegExp(String.raw`${CODE_KEY}[^{}]{0,400}?${AMOUNT_KEY}|${AMOUNT_KEY}[^{}]{0,400}?${CODE_KEY}|${Q}(?:priceCurrency|price_currency)${Q}\s*:\s*${Q}([A-Z]{3})${Q}`, "g");
+  // Price-shaped objects that are not product prices: free-shipping thresholds, analytics/ecommerce events.
+  const NOT_PRODUCT = /ship|threshold|minimum|free|ecommerce|datalayer|analytics|tracking|gtag/i;
+  // A tax, delivery or fee amount is priced in the checkout's currency, not necessarily the shelf's.
+  const NOT_ITEM_AMOUNT = /(?:tax|deliver|duty|handling|fee|surcharge|deposit)\w{0,20}[Pp]rice/i;
+
+  function dataCurrencies(text) {
+    const all = new Set(), positive = new Set();
+    if (typeof text !== "string") return { all, positive };
+    for (const match of text.matchAll(DATA_CURRENCY)) {
+      if (DEFAULT_KEY.test(match[1])) continue;
+      if (match[2]) { all.add(match[2].toUpperCase()); continue; }
+      for (const [, code] of match[3].matchAll(QUOTED_CODE)) if (ISO.has(code.toUpperCase())) all.add(code.toUpperCase());
+    }
+    for (const match of text.matchAll(PRICE_CURRENCY)) {
+      // The enclosing object's own key (just before its opening brace) and its sibling keys decide what it prices.
+      const open = text.lastIndexOf("{", match.index);
+      if (NOT_PRODUCT.test(text.slice(Math.max(0, open - 40), match.index + match[0].length)) || NOT_ITEM_AMOUNT.test(match[0])) continue;
+      positive.add(match[1] || match[2] || match[3]);
+    }
+    return { all, positive };
+  }
+
   function structuredSavings(root) {
     const pairs = new Set();
     for (const node of schemaNodes(root, ["Offer"])) {
@@ -231,7 +275,7 @@
     return new Intl.NumberFormat(uiLocale(), { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, formatMoney, pairSavings, structuredCurrencies, structuredSavings, localSavings };
+  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, formatMoney, pairSavings, structuredCurrencies, dataCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

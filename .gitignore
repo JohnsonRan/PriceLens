@@ -27,6 +27,8 @@ tests/fixtures/*
 !tests/fixtures/local-savings-regression.js
 !tests/fixtures/jsonld-currency-regression.html
 !tests/fixtures/jsonld-currency-regression.js
+!tests/fixtures/data-currency-regression.html
+!tests/fixtures/data-currency-regression.js
 !tests/fixtures/lazy-regression.html
 !tests/fixtures/lazy-regression.js
 !tests/fixtures/shadow-regression.html

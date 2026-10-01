@@ -269,8 +269,39 @@
         for (const match of script.textContent.matchAll(/"currencyInfo"\s*:\s*\{\s*"code"\s*:\s*"([A-Z]{3})"/g)) hints.push(match[1]);
       }
     }
-    const unique = [...new Set(hints.filter((v) => Object.hasOwn(C.CURRENCIES, v)))];
-    return unique.length === 1 ? unique[0] : "";
+    // Inline data may only narrow: any second declared code (a switcher, a display currency) cancels every page hint,
+    // including metadata ones, and an unscannable script counts as possibly conflicting.
+    const data = inlineDataCurrencies();
+    if (!data) return "";
+    // A visible currency switcher's selection is what the shopper sees; like inline data it can only veto.
+    for (const select of document.querySelectorAll("select")) {
+      const code = select.value.toUpperCase();
+      if (/^[A-Z]{3}$/.test(code) && Object.hasOwn(C.CURRENCIES, code) && /currenc|货币|币种|通貨/i.test(`${select.name} ${select.id} ${select.getAttribute("aria-label") || ""} ${select.labels?.[0]?.textContent || ""}`)) data.all.add(code);
+    }
+    if (data.all.size > 1) return "";
+    const meta = [...new Set(hints.filter((v) => Object.hasOwn(C.CURRENCIES, v)))];
+    if (meta.length > 1) return "";
+    const [declared] = data.all;
+    if (meta.length) return !declared || declared === meta[0] ? meta[0] : "";
+    // With no metadata, inline data is the only source and must tie that code to a price.
+    return declared && data.positive.size === 1 && data.positive.has(declared) && Object.hasOwn(C.CURRENCIES, declared) ? declared : "";
+  }
+
+  // Stores that print only "$" often state the currency in their inline app data (Next.js, Redux, storefront config).
+  // JSON-LD is excluded: it can list other regions' offers and is read through structuredCurrencies instead.
+  const scriptCodes = new WeakMap();
+  function inlineDataCurrencies() {
+    const all = new Set(), positive = new Set();
+    for (const script of document.scripts) {
+      if (script.src || /^application\/ld\+json\b/i.test(script.type)) continue;
+      const text = script.textContent;
+      if (text.length > 5_000_000) return null; // An unscanned script may contain conflicts; fail closed.
+      let cached = scriptCodes.get(script);
+      if (cached?.text !== text) scriptCodes.set(script, cached = { text, codes: C.dataCurrencies(text) });
+      for (const code of cached.codes.all) all.add(code);
+      for (const code of cached.codes.positive) positive.add(code);
+    }
+    return { all, positive };
   }
 
   function readJsonLd() {
@@ -282,14 +313,20 @@
     return roots;
   }
 
+  // Currency for one price: its own card's markup first (the page states it for this very product), then the user's
+  // site/global choice, then the page-wide hint. A card that contradicts itself gets none, not the user's guess.
   function hintFor(node) {
-    const manual = C.manualHint(settings, location.hostname);
-    if (manual) return manual;
     let el = node.parentElement;
     const scope = el?.closest(CURRENCY_SCOPE);
-    for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
-      const hint = el.getAttribute("data-currency");
+    // data-currency is cheap to read, so inside a card follow it all the way up to the card. Outside any card only the
+    // price's near ancestors count: a site-wide wrapper's data-currency is usually the store default, not what is shown.
+    for (let up = el, depth = 0; up && up !== document.body && (scope || depth < 4); up = up.parentElement, depth++) {
+      const hint = up.getAttribute("data-currency");
       if (Object.hasOwn(C.CURRENCIES, hint)) return hint;
+      if (up === scope) break;
+    }
+    const manual = C.manualHint(settings, location.hostname);
+    for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
       if (el === document.body) break;
       if (!hintCache.has(el)) {
         const metadata = (!scope && crossesProducts(el, node) ? [] : [...el.querySelectorAll('[itemprop="priceCurrency"]')])
@@ -302,7 +339,7 @@
       if (unique.length > 1) return "";
       if (el === scope) break;
     }
-    return pageHint;
+    return manual || pageHint;
   }
 
   function removeRecord(anchor, store = records) {
@@ -943,7 +980,8 @@
       if (mutation.type === "childList" && changed.length && changed.every((n) => n.nodeType === Node.ELEMENT_NODE && n.hasAttribute(MARK))) continue;
       const stylesheet = element?.closest("style,link[rel='stylesheet']") || changed.some((node) => node.nodeType === Node.ELEMENT_NODE && (node.matches("style,link[rel='stylesheet']") || node.querySelector("style,link[rel='stylesheet']")));
       if (stylesheet) queueAppearance();
-      if (element?.closest("form") || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("form") || n.querySelector("form")))) hintDirty = true;
+      // Forms hold price-filter units; a currency <select> may sit outside any form.
+      if (element?.closest("form,select") || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("form,select") || n.querySelector("form,select")))) hintDirty = true;
       if (mutation.type === "attributes" && ["class", "style", "data-theme", "data-color-mode", "data-color-scheme", "data-bs-theme"].includes(mutation.attributeName)) {
         queueAppearance(element);
         continue;
@@ -1005,7 +1043,8 @@
   window.addEventListener("resize", () => { queueAppearance(); queue(document.body); });
   // The event may change a page's CSS; the chosen palette still comes only from the actual background.
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => queueAppearance());
-  document.addEventListener("change", () => queueAppearance());
+  // A shopper picking another currency in a native <select> changes no DOM, so re-read the page hint on change too.
+  document.addEventListener("change", () => { hintDirty = true; queueAppearance(); });
   document.addEventListener("load", (event) => { if (event.target.matches?.("link[rel='stylesheet']")) queueAppearance(); }, true);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { queueAppearance(); refresh(); } });
   setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);

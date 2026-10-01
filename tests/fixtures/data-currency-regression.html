@@ -1,0 +1,12 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Inline data page currency regression</title>
+<link rel="stylesheet" href="../../extension/content.css">
+<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"products":[{"name":"Game","prices":{"regular":{"amount":59.99,"currency":"CAD"}}}]}}}</script>
+<script type="Application/LD+JSON">{"@type":"Product","name":"Other regions"}</script>
+</head><body>
+<section id="ambiguous"><h3>Game</h3><p>$59.99</p></section>
+<section id="yen"><h3>Other</h3><p>¥500</p></section>
+<section id="explicit"><p>US$10</p></section>
+<pre id="dom-results">pending</pre>
+<script src="../../extension/shared.js"></script><script src="data-currency-regression.js"></script><script src="../../extension/content.js"></script>
+</body></html>
