@@ -17,7 +17,12 @@ function factory(messages, uiLanguage) {
   };
 }
 
-const read = (lang) => JSON.parse(fs.readFileSync(path.join(__dirname, "../extension/_locales", lang, "messages.json"), "utf8"));
+// Same fallback as Chrome: zh_CN has no folder of its own and resolves to zh.
+const read = (lang) => {
+  const dir = path.join(__dirname, "../extension/_locales");
+  const pack = fs.existsSync(path.join(dir, lang)) ? lang : lang.split("_")[0];
+  return JSON.parse(fs.readFileSync(path.join(dir, pack, "messages.json"), "utf8"));
+};
 const i18n = (lang = "zh_CN") => factory(read(lang), lang.replace("_", "-"));
 // Inline <script> for file:// fixtures, which cannot fetch the locale file themselves.
 const i18nScript = (lang = "zh_CN") => `<script>window.PL_I18N = (${factory})(${JSON.stringify(read(lang)).replace(/</g, "\\u003c")}, ${JSON.stringify(lang.replace("_", "-"))});</script>`;

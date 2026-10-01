@@ -36,7 +36,10 @@ foreach ($size in @(16, 32)) {
 }
 # A fixed allowlist prevents test pages, secrets, browser profiles and store materials entering the ZIP.
 $files = @('manifest.json', 'shared.js', 'background.js', 'jev.js', 'content.js', 'content.css', 'popup.html', 'popup.js', 'popup.css', '_locales/zh_CN/messages.json', '_locales/zh/messages.json', '_locales/en/messages.json', 'fonts/SpaceGrotesk.woff2', 'fonts/OFL.txt', 'icons/icon16.png', 'icons/icon32.png', 'icons/icon48.png', 'icons/icon128.png')
-foreach ($file in $files) { if (!(Test-Path -LiteralPath (Join-Path $extension $file))) { throw "Missing package file: $file" } }
+# The repo keeps one Chinese pack (zh, which Chrome also uses for zh-CN); the ZIP still ships zh_CN for the store listing.
+$aliases = @{ '_locales/zh_CN/messages.json' = '_locales/zh/messages.json' }
+function SourceOf($file) { Join-Path $extension $(if ($aliases.ContainsKey($file)) { $aliases[$file] } else { $file }) }
+foreach ($file in $files) { if (!(Test-Path -LiteralPath (SourceOf $file))) { throw "Missing package file: $file" } }
 $dist = Join-Path $root 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
 $destination = Join-Path $dist "pricelens-$($manifest.version).zip"
@@ -44,7 +47,7 @@ $temp = Join-Path $dist (([guid]::NewGuid().ToString()) + '.zip')
 try {
     $zip = [System.IO.Compression.ZipFile]::Open($temp, [System.IO.Compression.ZipArchiveMode]::Create)
     try {
-        foreach ($file in $files) { [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Join-Path $extension $file), $file, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null }
+        foreach ($file in $files) { [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (SourceOf $file), $file, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null }
     } finally { $zip.Dispose() }
     $check = [System.IO.Compression.ZipFile]::OpenRead($temp)
     try { if (@(Compare-Object ($files | Sort-Object) ($check.Entries.FullName | Sort-Object)).Count) { throw 'ZIP file list mismatch.' } }
