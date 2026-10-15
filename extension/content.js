@@ -20,7 +20,7 @@
   const badgeAnchors = new WeakMap();
   const savingsRecords = new Map();
   const priceUnits = new Map();
-  const skipped = new Map(); // Visible price unit -> one symbol ("$" or "¥") per price that no page evidence resolved.
+  const skipped = new Map(); // Visible price unit -> one shared mark ("$", "kr", ...) per price that no page evidence resolved.
   const pending = new Set();
   const visibilityRoots = new Set();
   const themeRoots = new Set();
@@ -294,12 +294,12 @@
 
   function visibleUnit(el, prices) {
     if (visuallyClipped(el)) {
-      const digits = prices[0].original.replace(/\D/g, "");
+      const digits = prices[0].original.replace(/\P{Nd}/gu, "");
       let wrapper = el.parentElement;
       for (let depth = 0; wrapper && wrapper !== document.body && depth < 2; depth++, wrapper = wrapper.parentElement) {
         // Class-name independent accessible-price + aria-hidden visual duplicate pattern.
         const mirrors = [...wrapper.querySelectorAll('[aria-hidden="true"]')];
-        if (isVisible(wrapper) && mirrors.some((mirror) => !visuallyClipped(mirror) && getComputedStyle(mirror).visibility === "visible" && textOf(mirror, true, true).replace(/\D/g, "") === digits)) return { anchor: wrapper, prices };
+        if (isVisible(wrapper) && mirrors.some((mirror) => !visuallyClipped(mirror) && getComputedStyle(mirror).visibility === "visible" && textOf(mirror, true, true).replace(/\P{Nd}/gu, "") === digits)) return { anchor: wrapper, prices };
       }
     }
     return { anchor: el, prices };
@@ -363,7 +363,7 @@
     const hint = hintFor(node);
     let { anchor, prices, count } = unitFor(node, hint);
     if (prices.length) { priceUnits.set(anchor, { node, prices, struck: settings.savingsEnabled ? prices.map((price) => isStruck(anchor, price)) : [] }); unitsSeen.add(anchor); }
-    // Without AI a symbol-only amount is no price unit; renderPrices only counts it for the popup's site-currency hint.
+    // Without AI an amount whose currency is still open is no price unit; renderPrices only counts it for the popup's site-currency hint.
     else if (count) ({ anchor, prices } = count);
     if (covered(anchor, seen)) return;
     const visible = isVisible(anchor);

@@ -4,9 +4,8 @@
   // Deliberately excluded: codes that are also common words (ALL, TOP, CUP, MAD, PEN, COP, GEL, CRC, MOP, BOB, ...),
   // codes that are also units or licences (AWG, BSD), the code no storefront prints (PAB), and 3-decimal currencies
   // (KWD, BHD, OMR, JOD, TND), whose "12.500" parseAmount would read as thousands. BGN is excluded because Bulgaria
-  // "12.500" parseAmount would read as thousands. BGN is excluded because Bulgaria adopted the euro: no provider
-  // quotes it any more, so it would be a target currency the panel can offer but never fill; ANG is out because XCG
-  // replaced it in 2025, and XCG is what a shopper can actually be charged in.
+  // adopted the euro: no provider quotes it any more, so it would be a target currency the panel can offer but never
+  // fill; ANG is out because XCG replaced it in 2025, and XCG is what a shopper can actually be charged in.
   // A code may only be added here if the blended rate route really quotes it as both base and target; a symbol for an
   // unsupported unit is worse than a symbol left out, because it becomes a setting that silently converts nothing.
   const CODES = ("CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB " +

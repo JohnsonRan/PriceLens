@@ -53,6 +53,10 @@ window.addEventListener("load", async () => {
     check("original price capsule and image dimensions never expand", () => byId("yahoo-price").textContent === "15,000円" && byId("yahoo-price").getBoundingClientRect().width === capsuleWidth && byId("yahoo-picture").getBoundingClientRect().height === pictureHeight);
     check("fixed-height clipped row uses a safe adjacent flow position", () => after("clipped-row")?.textContent.includes("240.00") && !byId("clipped-row").querySelector("[data-pricelens]"));
     check("accessible-price extraction works without Amazon class names", () => after("generic-widget")?.textContent.includes("204.00") && !byId("generic-widget").querySelector("[data-pricelens]"));
+    // Digits in another script must compare as digits: with an ASCII-only class the accessible price and the visible
+    // duplicate both reduce to an empty string, so any visible mirror would match and the badge would sit beside a
+    // different amount than the one it read.
+    check("an accessible price in another script is not anchored beside a different visible amount", () => !after("sr-ar-widget") && !byId("sr-ar-host").querySelector("[data-pricelens]") && byId("sr-ar-host").textContent.includes("٩٩٫٩٩"));
     check("no safe position means no invisible badge or expanded capsule", () => !byId("no-room").querySelector("[data-pricelens]") && byId("unsafe-price").textContent === "USD 50");
     check("continuous promotional copy keeps its original lines", () => byId("promo-line").offsetHeight <= promoHeight + 4 && badges("promo-line").length === 2);
     check("narrow price and its qualifier stay together with conversion outside", () => byId("narrow-choice").offsetHeight === choiceHeight && badges("narrow-choice").length === 1);

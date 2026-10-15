@@ -86,6 +86,13 @@ test("a shared mark resolves to each currency it names, and names only supported
   }
 });
 
+test("a dollar sign resolves to every dollar currency the panel can offer", () => {
+  // Stated separately from the AMBIGUOUS walk: dropping one of these from the "$" list would still pass that walk, and
+  // the panel offers all of them in "Currency on this site".
+  for (const code of ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN", "ARS", "CLP", "JMD", "TTD", "BBD", "XCD", "DOP"])
+    assert.equal(C.findPrices("$10", code)[0]?.currency, code, `a ${code} site currency resolves a bare $`);
+});
+
 test("a skipped price reports the mark the page used, and a shared mark is detected without a full parse", () => {
   for (const [text, mark] of [["$19.99", "$"], ["￥30", "￥"], ["199 kr", "kr"], ["Rs 1,299", "Rs"], ["125,50 lei", "lei"], ["50 ₨", "₨"], ["ريال 90", "ريال"]]) {
     const [price] = C.findPrices(text, "", true);

@@ -74,7 +74,7 @@ async function notifyPage() {
   if (activeTab?.id) await chrome.tabs.sendMessage(activeTab.id, { type: "refresh" }).catch(() => {});
 }
 
-// Prices on this page that only show "$" or "¥" and no page evidence resolved: point to the one setting that does.
+// Prices on this page whose currency is still open and no page evidence resolved: point to the one setting that does.
 async function pageNotice() {
   $("skip-notice").hidden = true;
   if (!activeTab?.id || !hostname || !state.settings.enabled || state.settings.excludedHosts.includes(hostname)) return;
