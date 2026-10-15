@@ -116,6 +116,9 @@
   "errAiSensitive": {
     "message": "No AI requests are sent from this page."
   },
+  "errJevTopFrame": {
+    "message": "AI runs on the top-level page only; a frame keeps local recognition."
+  },
   "errJevPermission": {
     "message": "Access to the Jev service has not been granted."
   },

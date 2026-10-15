@@ -116,6 +116,9 @@
   "errAiSensitive": {
     "message": "此页面不发送 AI 请求。"
   },
+  "errJevTopFrame": {
+    "message": "AI 仅在页面主框架中运行；框架内只使用本地识别。"
+  },
   "errJevPermission": {
     "message": "尚未授权访问 Jev 服务。"
   },

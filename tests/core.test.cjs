@@ -237,8 +237,8 @@ function worker(settings = {}, localData = {}, options = {}) {
   const optionsJevResponse = options.jevResponse || (() => ({ answers: {} }));
   vm.runInContext(fs.readFileSync(require.resolve("../extension/jev.js"), "utf8"), context);
   vm.runInContext(fs.readFileSync(require.resolve("../extension/background.js"), "utf8"), context);
-  function send(message, trusted = true, url = "https://shop.test/") {
-    return new Promise((resolve) => listener(message, { id: "test", url: trusted ? "chrome-extension://test/popup.html" : url }, resolve));
+  function send(message, trusted = true, url = "https://shop.test/", frameId = 0) {
+    return new Promise((resolve) => listener(message, { id: "test", url: trusted ? "chrome-extension://test/popup.html" : url, frameId }, resolve));
   }
   const menu = async (selectionText, pageUrl = "https://shop.test/") => { if (!menus.length) installed(); await menuClick({ menuItemId: "convert-selection", selectionText, pageUrl }, { id: 7 }); return shown.at(-1)?.text ?? alerts.at(-1); };
   return { send, menu, menus, shown, alerts, calls, local, sync, access: () => access, fail: () => { fail = true; }, failOn: (pattern) => { failPattern = pattern; }, rows: (r) => { rows = r; } };
@@ -303,6 +303,23 @@ test("Wise auth stays in worker; only popup can edit; token rotation clears cach
   assert.equal(w.local["rates:wise:CNY"], undefined);
   await w.send({ type: "getRates" });
   assert.equal(w.calls.at(-1).options.headers.Authorization, "Bearer new-token");
+});
+
+test("a frame never uploads to AI, and is paused with the page it sits in", async () => {
+  // A frame cannot see the top page's path, where the sensitive-page guard works, so the worker refuses it outright.
+  const framed = worker({}, activeAI, { granted: true });
+  assert.equal((await framed.send(inference(), false, "https://shop.test/", 3)).ok, false);
+  assert.equal(framed.calls.length, 0, "no request from a frame, whatever its own path looks like");
+  assert.equal((await framed.send(inference(), false, "https://shop.test/", 0)).ok, true, "the top document still asks");
+  assert.equal(framed.calls.length, 1);
+  // "Pause on this site" names the page the shopper sees, so a widget on another host is paused with it.
+  const paused = { ...C.DEFAULTS, excludedHosts: ["shop.example"] };
+  assert.equal(C.isPaused(paused, ["shop.example"]), true, "the top page itself");
+  assert.equal(C.isPaused(paused, ["widget.example", "shop.example"]), true, "a frame inside the paused page");
+  assert.equal(C.isPaused(paused, ["widget.example"]), false, "a frame elsewhere is not paused");
+  assert.equal(C.isPaused({ ...C.DEFAULTS, excludedHosts: [] }, ["widget.example", "shop.example"]), false);
+  assert.equal(C.isPaused(C.DEFAULTS, ["constructor"]), false, "an absent list pauses nothing");
+  assert.equal(C.isPaused({ excludedHosts: ["a"] }, ["constructor"]), false, "only the list itself is read");
 });
 
 test("missing token, unsupported base, invalid response, obsolete cache fail closed", async () => {

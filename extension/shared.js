@@ -181,6 +181,9 @@
   const siteHintFor = (settings, host) => Object.hasOwn(settings.siteHints ?? {}, host) ? settings.siteHints[host] : "";
   // Manual hint for a host: this site's choice, else the global one, else none.
   const manualHint = (settings, host) => siteHintFor(settings, host) || settings.sourceHint || "";
+  // "Pause on this site" is about the page the shopper is looking at, so a frame is paused with every page it sits in.
+  // The caller passes the frame's own host and the hosts of the pages around it.
+  const isPaused = (settings, hosts) => hosts.some((host) => (settings.excludedHosts ?? []).includes(host));
 
   function pairSavings(input, referenceIndex, currentIndex) {
     if (referenceIndex === currentIndex || !Array.isArray(input?.candidates) || input.candidates.length < 2 || input.candidates.length > 4) return null;
@@ -311,7 +314,7 @@
     return new Intl.NumberFormat(uiLocale(), { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, AMBIGUOUS, AMBIGUOUS_MARK, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, formatMoney, pairSavings, structuredCurrencies, dataCurrencies, structuredSavings, localSavings };
+  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, AMBIGUOUS, AMBIGUOUS_MARK, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, isPaused, formatMoney, pairSavings, structuredCurrencies, dataCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

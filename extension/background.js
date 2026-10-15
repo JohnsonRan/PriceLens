@@ -20,6 +20,9 @@ async function getSettings() {
 async function inferJev(message, sender) {
   const revision = settingsRevision;
   await saveQueue;
+  // AI is a top-document feature: a frame cannot see the top page's path, where the sensitive-page guard works, so a
+  // frame never uploads, whatever its own path looks like.
+  if (sender.frameId !== 0) throw new Error(t("errJevTopFrame"));
   const settings = await getSettings();
   let url;
   try { url = new URL(sender.url); } catch { throw new Error(t("errJevPageOnly")); }

@@ -1,5 +1,18 @@
 (() => {
   const C = PriceLens;
+  // A frame cannot read the URL of the page it sits in, but the origins of its ancestors are available without
+  // cross-origin access, so pausing a site also stops a widget embedded in that site.
+  const inFrame = window.top !== window;
+  const pageHosts = (() => {
+    const hosts = [];
+    for (const origin of location.ancestorOrigins ?? []) {
+      try { hosts.push(new URL(origin).hostname); } catch { /* An opaque ancestor origin names no host. */ }
+    }
+    return hosts;
+  })();
+  // AI reads the text around a price from the top document only: a frame cannot see the top page's path, where the
+  // sensitive-page guard works, and the worker refuses a frame's request for the same reason.
+  const aiAllowed = () => settings.jevEnabled && !inFrame;
   const { MARK, SKIP, CARD, CURRENCY_SCOPE, HEADING, CONTROL, holds, related, touchesAny, elementOf, shown, redact, composedOrder, textOf, visuallyClipped, isVisible, sourceRect, superscriptText, crossesProducts, isStruck } = PriceLensDom;
   const { HINT_INPUTS, detectPageHint, readJsonLd } = PriceLensEvidence;
   const { colorCache, backgroundTheme, fits, layoutKey, placeBadge } = PriceLensPlacement;
@@ -161,7 +174,7 @@
   }
 
   function aiCurrency(anchor, price) {
-    if (!settings.jevEnabled || price.original.length > 80) return null;
+    if (!aiAllowed() || price.original.length > 80) return null;
     const snippet = aiContext(anchor, price.original);
     if (!snippet) return null;
     const candidate = { original: price.original, context: snippet.context };
@@ -178,7 +191,7 @@
   }
 
   async function flushAI() {
-    if (aiBusy || !settings.jevEnabled || !table) return;
+    if (aiBusy || !aiAllowed() || !table) return;
     const entries = [...aiMemo.values()].filter((entry) => entry.pending && !entry.sent).slice(0, 8);
     if (!entries.length) return;
     const epoch = aiEpoch;
@@ -190,7 +203,7 @@
       if (result.ok && Array.isArray(result.decisions)) decisions = result.decisions;
     } catch { /* Network/model failure cannot stop deterministic local conversion. */ }
     finally {
-      if (epoch === aiEpoch && settings.jevEnabled) {
+      if (epoch === aiEpoch && aiAllowed()) {
         entries.forEach((entry, i) => {
           entry.pending = false;
           entry.currency = entry.possible.includes(decisions[i]) ? decisions[i] : null;
@@ -297,7 +310,7 @@
   // rules) and offers this site's currency: `count` is that unit, for counting only. One walk serves both, reading each
   // ancestor's text once; a text holding a shared mark is parsed a second time.
   function unitFor(node, hint) {
-    const unresolved = settings.jevEnabled, shared = C.AMBIGUOUS_MARK;
+    const unresolved = aiAllowed(), shared = C.AMBIGUOUS_MARK;
     // Read a canonical complete price; CSS-implied decimals without one remain unsupported.
     let el = node.parentElement, count = null;
     for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
@@ -710,7 +723,7 @@
       settings = next;
       if (settingsChanged) { resetAI(); revision++; skipped.clear(); }
       if (routeChanged) { clear(); table = null; }
-      if (!settings.enabled || settings.excludedHosts.includes(location.hostname)) { clear(); table = null; return; }
+      if (!settings.enabled || C.isPaused(settings, [location.hostname, ...pageHosts])) { clear(); table = null; return; }
       const response = await chrome.runtime.sendMessage({ type: "getRates" });
       if (id !== refreshId) return;
       if (!response.ok) throw new Error(response.error);
@@ -758,8 +771,8 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { queueAppearance(); refresh(); } });
   // Rates are one table per tab, and the worker, the popup and each frame's own visibility already refresh a frame, so
   // only the top frame runs the periodic staleness check. Every frame doing it would multiply it by the frame count.
-  // Only the top frame also answers pageStatus: the popup asks frame 0, so an embedded shop's skipped count is not
-  // added to the page's. Badges are placed per frame, which is where each price really is.
-  if (window.top === window) setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);
+  // pageStatus is asked of frame 0 only (see popup.js), so a subframe's skipped count is not added to the page's.
+  // Badges are placed per frame, which is where each price really is.
+  if (!inFrame) setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);
   refresh();
 })();
