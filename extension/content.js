@@ -748,6 +748,10 @@
   document.addEventListener("change", () => { hintDirty = true; queueAppearance(); });
   document.addEventListener("load", (event) => { if (event.target.matches?.("link[rel='stylesheet']")) queueAppearance(); }, true);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { queueAppearance(); refresh(); } });
-  setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);
+  // Rates are one table per tab, and the worker, the popup and each frame's own visibility already refresh a frame, so
+  // only the top frame runs the periodic staleness check. Every frame doing it would multiply it by the frame count.
+  // Only the top frame also answers pageStatus: the popup asks frame 0, so an embedded shop's skipped count is not
+  // added to the page's. Badges are placed per frame, which is where each price really is.
+  if (window.top === window) setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60_000);
   refresh();
 })();

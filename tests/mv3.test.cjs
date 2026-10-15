@@ -16,9 +16,11 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
   const evidence = fs.mkdtempSync(path.join(os.tmpdir(), 'pricelens-mv3-'));
   const profile = path.join(evidence, 'profile');
   fs.mkdirSync(profile);
+  // One same-origin frame: readable from the top document, and still proof that an embedded shop is converted.
+  const embed = '<!doctype html><html lang="en"><title>Embedded shop</title><style>body{font:18px Arial;background:white;color:#222;padding:8px}</style><p>USD 30</p></html>';
   const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end('<!doctype html><html lang="en"><title>PriceLens MV3 smoke</title><style>body{font:18px Arial;background:white;color:#222;padding:20px}</style><h1>Local synthetic shop</h1><p>USD 10</p><p>EUR 20</p><x-card></x-card><script>customElements.define("x-card", class extends HTMLElement { connectedCallback() { this.attachShadow({ mode: "open" }).innerHTML = "<p>USD 5</p>"; } });</script></html>');
+    res.end(req.url.startsWith('/frame') ? embed : '<!doctype html><html lang="en"><title>PriceLens MV3 smoke</title><style>body{font:18px Arial;background:white;color:#222;padding:20px}</style><h1>Local synthetic shop</h1><p>USD 10</p><p>EUR 20</p><x-card></x-card><iframe src="/frame" width="400" height="200"></iframe><script>customElements.define("x-card", class extends HTMLElement { connectedCallback() { this.attachShadow({ mode: "open" }).innerHTML = "<p>USD 5</p>"; } });</script></html>');
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const proc = spawn(browser, ['--headless=new', '--disable-gpu', ...platformFlags, '--lang=zh-CN', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, 'about:blank'], { stdio: 'ignore', env: { ...process.env, LANGUAGE: 'zh_CN', LANG: 'zh_CN.UTF-8' } }); // --lang alone is ignored on Linux
@@ -95,6 +97,9 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     await waitFor(page, `document.querySelector('x-card').shadowRoot.querySelector('.pricelens-price')`);
     assert.equal(await evaluate(page, `(() => { const b = document.querySelector('x-card').shadowRoot.querySelector('.pricelens-price'); return b.textContent.includes('40.00') && getComputedStyle(b).display === 'inline-block'; })()`), true, 'open shadow root price converts with the worker-supplied stylesheet');
     assert.equal(await evaluate(page, `document.querySelectorAll('.pricelens-price[tabindex="0"]').length + document.querySelector('x-card').shadowRoot.querySelectorAll('.pricelens-price[tabindex="0"]').length`), 1);
+    const framePrice = `document.querySelector('iframe')?.contentDocument?.querySelector('.pricelens-price')`;
+    await waitFor(page, `document.querySelector('iframe')?.contentDocument?.querySelectorAll('.pricelens-price').length===1`);
+    assert.equal(await evaluate(page, `(() => { const b = ${framePrice}; return b.textContent.includes('240.00') && b.getBoundingClientRect().width > 0; })()`), true, 'an embedded shop frame converts its own price');
     await command('Page.bringToFront', {}, page);
     await evaluate(page, `document.querySelector('.pricelens-price').focus()`);
     assert.equal(await evaluate(page, `document.activeElement.matches('.pricelens-price') && document.hasFocus()`), true, 'Price button must own real keyboard focus');
@@ -123,6 +128,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     await waitFor(popup, `!document.querySelector('#refresh').disabled`);
     await evaluate(popup, `document.querySelector('#enabled').click(); document.querySelector('#save').click()`);
     await waitFor(page, `document.querySelectorAll('.pricelens-price').length===2`);
+    await waitFor(page, `document.querySelector('iframe')?.contentDocument?.querySelectorAll('.pricelens-price').length===1`);
     await waitFor(popup, `!document.querySelector('#refresh').disabled`);
     await evaluate(popup, `(() => { const a = document.querySelector('#calc-amount'); a.value = '10'; a.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     assert.match(await evaluate(popup, `document.querySelector('#calc-result').textContent`), /CNY\s?80\.00/, 'quick converter uses real cached rates');
@@ -130,7 +136,7 @@ test('real MV3: trusted storage/messages, live content toggles and keyboard-acce
     await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] }, popup);
     const popupShot = await command('Page.captureScreenshot', { format: 'png' }, popup);
     fs.writeFileSync(path.join(evidence, 'popup-dark.png'), Buffer.from(popupShot.data, 'base64'));
-    console.log('Real MV3 worker, popup sender/storage, content refresh, Enter/Escape and focus restoration passed. Synthetic cached rates; fetch disabled. Evidence: ' + evidence);
+    console.log('Real MV3 worker, popup sender/storage, content refresh (top document and embedded frame), Enter/Escape and focus restoration passed. Synthetic cached rates; fetch disabled. Evidence: ' + evidence);
   } finally {
     if (command && socket?.readyState === WebSocket.OPEN) await command('Browser.close').catch(() => {});
     socket?.close();

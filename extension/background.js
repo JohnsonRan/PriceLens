@@ -200,7 +200,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await chrome.tabs.sendMessage(tab.id, { type: "showConversion", text }, { frameId: 0 });
   } catch {
     // No live content script (tab opened before install/update): the click's activeTab grant allows a plain alert.
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: (message) => alert(message), args: [text] }).catch(() => {});
+    // frameIds pins it to the top frame: with all_frames every frame would otherwise raise its own alert.
+    await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [0] }, func: (message) => alert(message), args: [text] }).catch(() => {});
   }
 });
 
