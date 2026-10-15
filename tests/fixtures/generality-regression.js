@@ -42,6 +42,8 @@ window.addEventListener('load', async () => {
       check(id + ': invisible digits cannot change the amount', badges(id).length === 1 && amounts(id)[0].includes('80.00'), amounts(id));
     }
     check('styled cents without <sup> are never read as whole units', !amounts('split-cents').some(t => t.includes('15,992')), amounts('split-cents'));
+    check('an amount in another digit script converts, keeping the page\x27s own digits in its details', amounts('arabic-price').length === 1 && amounts('arabic-price')[0].includes('159.92') && badges('arabic-price')[0].title.includes('US$ ١٩٫٩٩'), [amounts('arabic-price'), badges('arabic-price')[0]?.title]);
+    check('styled cents in another digit script are never read as whole units', !amounts('split-cents-arabic').some(t => t.includes('15,992')), amounts('split-cents-arabic'));
     el('carousel').append(el('carousel').firstElementChild.cloneNode(true)); await wait();
     check('cloned slides keep exactly one tracked badge each', [...el('carousel').children].every(slide => slide.querySelectorAll('[data-pricelens]').length === 1) && amounts('carousel').length === 2, amounts('carousel'));
     check('superscript cents join the amount', amounts('sup-cents').length === 1 && amounts('sup-cents')[0].includes('159.92'), amounts('sup-cents'));

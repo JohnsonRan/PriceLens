@@ -316,7 +316,7 @@
     }
     // "USD 19" directly followed by a superscript that is not accepted above is a truncated amount, not USD 19.
     const next = node.nextSibling;
-    if (/\d\s*$/.test(node.data) && next?.nodeType === Node.ELEMENT_NODE && next.matches("sup,sub") && /^\s*\d/.test(next.textContent)) return { anchor: node, prices: [], count };
+    if (/\p{Nd}\s*$/u.test(node.data) && next?.nodeType === Node.ELEMENT_NODE && next.matches("sup,sub") && /^\s*\p{Nd}/u.test(next.textContent)) return { anchor: node, prices: [], count };
     const prices = C.findPrices(node.data, hint, unresolved);
     if (!prices.length && !unresolved && !count && symbol.test(node.data)) count = { anchor: node, prices: C.findPrices(node.data, hint, true) };
     return { anchor: node, prices, count };

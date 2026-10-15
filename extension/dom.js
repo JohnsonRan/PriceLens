@@ -17,7 +17,7 @@
   const shown = (el) => el.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) !== false;
 
   // Emails and phone-like digit runs are stripped from context snippets before any use.
-  const redact = (text) => text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已移除]").replace(/\+?\d[\d ()-]{7,}\d/g, "[长数字已移除]");
+  const redact = (text) => text.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已移除]").replace(/\+?\p{Nd}[\p{Nd} ()-]{7,}\p{Nd}/gu, "[长数字已移除]");
   const composedParent = (el) => el.parentElement || el.getRootNode().host || null;
 
   function composedOrder(a, b) {
@@ -36,7 +36,7 @@
       if (child.nodeType === Node.ELEMENT_NODE && child.matches(includeMirrors ? TEXT_SKIP : SKIP)) continue;
       const part = textOf(child, visibleOnly, includeMirrors);
       // Digits split across elements ("19" + styled "99") are not one number; a space makes them unparseable instead of 1999.
-      text += child.nodeType === Node.ELEMENT_NODE && /\d$/.test(text) && /^\d/.test(part) ? ` ${part}` : part;
+      text += child.nodeType === Node.ELEMENT_NODE && /\p{Nd}$/u.test(text) && /^\p{Nd}/u.test(part) ? ` ${part}` : part;
       if (text.length > 160) break;
     }
     return text;
@@ -72,12 +72,12 @@
         if (child.nodeType !== Node.ELEMENT_NODE || child.matches(`${TEXT_SKIP},[aria-hidden="true"]`)) continue;
         if (!child.matches("sup,sub")) { if (!walk(child)) return false; continue; }
         const part = child.textContent.trim();
-        if (/^\d{2}$/.test(part) && /\d$/.test(text.trimEnd())) {
+        if (/^\p{Nd}{2}$/u.test(part) && /\p{Nd}$/u.test(text.trimEnd())) {
           text = text.trimEnd();
           // Dot thousands ("1.299") mean a comma decimal.
-          text += /\.\d{3}$/.test(text) ? `,${part}` : `.${part}`;
-        } else if (/^\d{2}$/.test(part) && /[.,]$/.test(text.trimEnd())) text = text.trimEnd() + part;
-        else if (part && part.length <= 4 && !/\d/.test(part) && C.findPrices(`${part}1`, "", true).length === 1) text += part;
+          text += /\.\p{Nd}{3}$/u.test(text) ? `,${part}` : `.${part}`;
+        } else if (/^\p{Nd}{2}$/u.test(part) && /[.,]$/.test(text.trimEnd())) text = text.trimEnd() + part;
+        else if (part && part.length <= 4 && !/\p{Nd}/u.test(part) && C.findPrices(`${part}1`, "", true).length === 1) text += part;
         else return false;
       }
       return true;

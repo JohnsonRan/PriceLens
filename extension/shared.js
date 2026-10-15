@@ -45,7 +45,8 @@
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const tokens = [...Object.keys(CURRENCIES), ...Object.keys(SYMBOLS), ...Object.keys(AMBIGUOUS)].sort((a, b) => b.length - a.length).map(escape).join("|");
   const space = "[ \\t\\u00a0\\u202f]*";
-  const number = "[+−-]?\\d(?:[\\d.,'’ \\u00a0\\u202f]*\\d)?";
+  // Unicode decimal digits, plus the Arabic and full-width separators that come with them. Parse-time only.
+  const number = "[+−-]?\\p{Nd}(?:[\\p{Nd}.,'’ ٫٬，．\\u00a0\\u202f]*\\p{Nd})?";
   const cjk = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}]";
   const SCALE = /^[ \t\u00a0\u202f]*(?:(?:thousand|million|billion|trillion|mil|mln|mn|bn|tn|mio|mrd|m|b|k|t)s?\b|[万萬億亿千百])/iu;
   const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_]|[.,'’]\\d)|(?=${cjk}))`, "gu");
@@ -58,8 +59,16 @@
     return CURRENCIES[token] ? token : SYMBOLS[token] || (AMBIGUOUS[token]?.includes(hint) ? hint : null);
   }
 
+  // Every Unicode digit block holds exactly ten digits, so a digit's value is its offset from the zero of its block.
+  // Listed as those zeros rather than a codepoint table, and used only to read an amount, never to rewrite the page.
+  const DIGIT_ZEROS = "0٠۰߀०০੦૦୦௦౦೦൦෦๐໐༠၀႐០᠐᥆᧐᪀᪐᭐᮰᱀᱐꘠꣐꤀꧐꧰꩐꯰０𐒠𐴰𐵀𑁦𑃰𑄶𑇐𑋰𑑐𑓐𑙐𑛀𑛐𑜰𑣠𑥐𑯰𑱐𑵐𑶠𑷠𑽐𖄰𖩠𖫀𖭐𖵰𜳰𝟎𞅀𞋰𞓰𞗱𞥐🯰";
+  const DIGITS = new Map([...DIGIT_ZEROS].flatMap((zero) => [...Array(10)].map((_, i) => [zero.codePointAt(0) + i, String(i)])));
+  // "١٢٣٫٤٥" is the same amount as "123.45"; the separators travel with the digits.
+  const latinAmount = (text) => text.replace(/\p{Nd}/gu, (digit) => DIGITS.get(digit.codePointAt(0)) ?? digit)
+    .replace(/[٫，]/g, ",").replace(/[٬．]/g, ".");
+
   function parseAmount(input) {
-    let value = input.trim().replace(/−/g, "-");
+    let value = latinAmount(input.trim()).replace(/−/g, "-");
     let sign = 1;
     if (/^[+-]/.test(value)) {
       sign = value[0] === "-" ? -1 : 1;
@@ -118,7 +127,7 @@
       // A trailing wave is an open-ended starting price, not a fixed amount or a closed range.
       const marker = text.slice(end).match(/^[ \t\u00a0\u202f]*[～〜]/u);
       const rest = marker ? text.slice(end + marker[0].length).trimStart() : "";
-      const minimum = marker && !/^[+−-]?\d/u.test(rest) && new RegExp(pattern).exec(rest)?.index !== 0;
+      const minimum = marker && !/^[+−-]?\p{Nd}/u.test(rest) && new RegExp(pattern).exec(rest)?.index !== 0;
       if (minimum) end += marker[0].length;
       let signedAmount = amount * (sign === "-" || sign === "−" ? -1 : 1);
       let start = match.index;

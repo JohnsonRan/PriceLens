@@ -71,6 +71,24 @@ test("codes with no quote, a word meaning, or a 3-decimal scale are never curren
   assert.equal(C.findPrices("3 RM", "MYR")[0].currency, "MYR", "an explicit MYR hint still reads a shared RM");
 });
 
+test("amounts written in other digit scripts parse, and keep their original spelling", () => {
+  const cases = [
+    ["١٬٢٩٩٫٥٠ ر.س", "", "SAR", 1299.5], ["US$ ١٩٫٩٩", "", "USD", 19.99], ["₹ ১,২৩৪.৫০", "", "INR", 1234.5],
+    ["฿ ๑,๒๓๔.๕๐", "", "THB", 1234.5], ["EUR १,२३४.५०", "", "EUR", 1234.5], ["￥１２，８００", "CNY", "CNY", 12800],
+    ["١٢٣ 元", "", "CNY", 123], ["₩ ١٢٬٠٠٠", "", "KRW", 12000], ["៛ ១២៣", "", null, 0],
+  ];
+  for (const [text, hint, currency, amount] of cases) {
+    const prices = C.findPrices(text, hint);
+    if (currency === null) { assert.equal(prices.length, 0, `${text}: an unsupported currency mark is not a price`); continue; }
+    assert.equal(prices.length, 1, text);
+    assert.equal(prices[0].currency, currency, text);
+    assert.equal(prices[0].amount, amount, text);
+    assert.equal(prices[0].original, text, `${text}: the page's own digits are shown back unchanged`);
+  }
+  assert.deepEqual(C.findPrices("١٢٣ 元 USD 10").map((p) => p.amount), [123, 10], "Latin and non-Latin amounts parse side by side");
+  assert.equal(C.findPrices("٢٠٢٦").length, 0, "digits without a mark are not a price in any script");
+});
+
 test("every supported code has a localized name from Intl", () => {
   for (const code of Object.keys(C.CURRENCIES)) {
     for (const locale of ["zh-CN", "en"]) assert.notEqual(C.currencyName(code, locale), code, `${code} ${locale}`);

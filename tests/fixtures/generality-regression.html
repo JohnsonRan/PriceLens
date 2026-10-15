@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="../../extension/content.css">
 <style>body{font:16px Arial;background:#fff;color:#222}section,article{padding:8px;margin:8px}.css-hidden{display:none}.transparent{opacity:0}</style>
 </head><body>
-<section><article data-product-id="a"><meta itemprop="priceCurrency" content="USD"><span>US$10</span></article><article id="unknown" data-product-id="b"><span>$10</span></article><article id="known" data-product-id="c"><meta itemprop="priceCurrency" content="CAD"><span>$10</span></article></section>
+<section><article data-product-id="a"><meta itemprop="priceCurrency" content="USD"><span>US$10</span></article><article id="unknown" data-product-id="b"><span>$10</span></article><article id="known" data-product-id="c"><meta itemprop="priceCurrency" content="CAD"><span>$10</span></article><article id="arabic-price" data-product-id="d"><meta itemprop="priceCurrency" content="USD"><span>US$ ١٩٫٩٩</span></article></section>
 <article itemscope itemtype="https://schema.org/Product"><div itemscope itemtype="https://schema.org/Offer"><meta itemprop="priceCurrency" content="USD"><span>$10</span></div><div id="unknown-offer" itemscope itemtype="https://schema.org/Offer"><span>$10</span></div></article>
 <section id="hidden-tail"><div><span>USD</span><span>10</span><span hidden>99</span></div></section>
 <section id="css-tail"><div><span>USD</span><span>10</span><span class="css-hidden">99</span></div></section>
@@ -12,6 +12,7 @@
 <article id="dynamic"><meta id="currency-meta" itemprop="priceCurrency" content="USD"><span>$10</span></article>
 <article id="text-metadata"><span id="currency-text" itemprop="priceCurrency">USD</span> <span>$10</span></article>
 <section id="split-cents"><p><span>USD </span><span>19</span><span style="font-size:10px;vertical-align:top">99</span></p></section>
+<section id="split-cents-arabic"><p><span>US$ </span><span>١٩</span><span style="font-size:10px;vertical-align:top">٩٩</span></p></section>
 <section id="carousel"><div><span>USD 10</span></div></section>
 <section id="sup-cents"><p><span>USD </span><span>19</span><sup>99</sup></p></section>
 <section id="sup-symbol"><p><sup>US$</sup>7<sup>50</sup></p></section>
