@@ -31,22 +31,47 @@
     return hints;
   }
 
-  // The only storefront-specific evidence; every other rule reads generic markup. Add a site here only when it states
-  // its display currency nowhere generic, with a fixture of its real markup. Otherwise the popup's per-site currency
-  // (offered whenever prices are skipped) is the answer, not another special case.
-  const PREFERENCE_INPUT = 'input[type="hidden"][name="currencyOfPreference"]'; // Amazon: the shopper's chosen currency.
-  function storefrontHints() {
-    const hints = [...document.querySelectorAll(PREFERENCE_INPUT)].map((el) => el.value);
-    // Amazon (.a-price markup) names its display currency in nav data: {"currencyInfo":{"code":"JPY"}}.
-    if (document.querySelector(".a-price > .a-offscreen")) for (const script of document.scripts) {
-      for (const match of script.textContent.matchAll(/"currencyInfo"\s*:\s*\{\s*"code"\s*:\s*"([A-Z]{3})"/g)) hints.push(match[1]);
+  // Storefront-specific evidence, as data: each reader states where a site declares which currency it displays.
+  // Everything else in this file reads generic markup, so an entry costs nothing on the pages it does not match and a
+  // new site is one row here plus a fixture of its real markup, never a branch in the scan.
+  // Add a row only when the site states its currency somewhere no generic rule can read it:
+  // - A hostname-to-currency shortcut is deliberately absent. It would be a guess rather than evidence, and it is
+  //   wrong exactly for the shopper who switched the site's currency - the shopper these readers exist to see. A shop
+  //   that states nothing is served by the popup's per-site currency, which is offered whenever prices are skipped.
+  // - `when` names the markup the site is known by, so an unrelated page carrying a same-named element cannot answer
+  //   for it. `match` is a weaker hostname guard, for a selector that is not specific enough on its own.
+  // - A reader reads what the page says, in the site's own words (an input's value, an element's text, an inline
+  //   data code); it never decides what a currency symbol means, which stays with the ambiguous-mark rules.
+  const SITE_READERS = [
+    // Amazon: the hidden field holding the currency the shopper chose, and the nav data behind .a-price markup.
+    { source: "selector", selector: 'input[type="hidden"][name="currencyOfPreference"]' },
+    { source: "pattern", when: ".a-price > .a-offscreen", pattern: '"currencyInfo"\\s*:\\s*\\{\\s*"code"\\s*:\\s*"([A-Z]{3})"' },
+  ];
+  const SITE_SOURCES = {
+    // What the site prints for the shopper: an input's value, otherwise the element's own text.
+    selector: ({ selector }) => [...document.querySelectorAll(selector)].map((el) => (el.value ?? el.textContent).trim()),
+    // A code out of the site's own inline data, captured by the reader's own pattern. Per call, so no shared lastIndex.
+    pattern: ({ pattern }) => {
+      const found = [];
+      for (const script of document.scripts) for (const match of script.textContent.matchAll(new RegExp(pattern, "g"))) found.push(match[1]);
+      return found;
+    },
+  };
+  function siteHints() {
+    const hints = [];
+    for (const reader of SITE_READERS) {
+      if (reader.when && !document.querySelector(reader.when)) continue;
+      if (reader.match && !reader.match.test(location.hostname)) continue;
+      hints.push(...SITE_SOURCES[reader.source](reader));
     }
     return hints;
   }
+  // Every element selector the readers watch, so a change to one re-reads the page hint.
+  const HINT_INPUTS = SITE_READERS.filter((reader) => reader.source === "selector").map((reader) => reader.selector).join(",");
 
   // Explicit display metadata only; never infer currency from a domain or language.
   function detectPageHint(jsonLd) {
-    const hints = [document.documentElement.dataset.currency, ...priceFilterHints(), ...C.structuredCurrencies(jsonLd), ...storefrontHints()];
+    const hints = [document.documentElement.dataset.currency, ...priceFilterHints(), ...C.structuredCurrencies(jsonLd), ...siteHints()];
     for (const el of document.querySelectorAll('meta[property="product:price:currency"],meta[property="og:price:currency"],head meta[itemprop="priceCurrency"]')) hints.push(el.content);
     // Inline data may only narrow: any second declared code (a switcher, a display currency) cancels every page hint,
     // including metadata ones, and an unscannable script counts as possibly conflicting.
@@ -93,5 +118,5 @@
     return roots;
   }
 
-  globalThis.PriceLensEvidence = Object.freeze({ PREFERENCE_INPUT, detectPageHint, readJsonLd });
+  globalThis.PriceLensEvidence = Object.freeze({ HINT_INPUTS, detectPageHint, readJsonLd });
 })();
