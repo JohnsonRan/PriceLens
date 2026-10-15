@@ -1,14 +1,16 @@
 /* Shared by the popup, isolated content script, service worker and Node checks. */
 (() => {
   // Supported codes only; display names come from the browser's CLDR data in any UI language.
-  // Deliberately excluded: codes that are also common words (ALL, TOP, CUP, MAD, PEN, COP, GEL, CRC, MOP, BOB, PAB, ...),
-  // codes that are also units or licences (AWG, BSD), and 3-decimal currencies (KWD, BHD, OMR, JOD, TND), whose
+  // Deliberately excluded: codes that are also common words (ALL, TOP, CUP, MAD, PEN, COP, GEL, CRC, MOP, BOB, ...),
+  // codes that are also units or licences (AWG, BSD), the code no storefront prints (PAB), and 3-decimal currencies
+  // (KWD, BHD, OMR, JOD, TND), whose "12.500" parseAmount would read as thousands. BGN is excluded because Bulgaria
   // "12.500" parseAmount would read as thousands. BGN is excluded because Bulgaria adopted the euro: no provider
-  // quotes it any more, so it would be a target currency the panel can offer but never fill.
+  // quotes it any more, so it would be a target currency the panel can offer but never fill; ANG is out because XCG
+  // replaced it in 2025, and XCG is what a shopper can actually be charged in.
   // A code may only be added here if the blended rate route really quotes it as both base and target; a symbol for an
   // unsupported unit is worse than a symbol left out, because it becomes a setting that silently converts nothing.
   const CODES = ("CNY USD EUR GBP JPY HKD TWD SGD AUD CAD NZD CHF KRW THB INR MYR IDR PHP VND SEK NOK DKK ISK PLN CZK HUF RON TRY BRL MXN ZAR ILS AED SAR RUB " +
-    "ARS CLP EGP PKR NGN KZT UAH QAR BDT KES LKR RSD NPR GHS TZS UGX DZD BYN AZN UZS KGS TJS MDL MKD HNL NIO JMD TTD DOP BBD XCD ANG").split(" ");
+    "ARS CLP EGP PKR NGN KZT UAH QAR BDT KES LKR RSD NPR GHS TZS UGX DZD BYN AZN UZS KGS TJS MDL MKD HNL NIO JMD TTD DOP BBD XCD XCG").split(" ");
   // UI text comes from _locales via chrome.i18n: en is the default, zh is the fallback for zh-TW/zh-HK.
   const t = (key, ...subs) => globalThis.chrome?.i18n?.getMessage(key, subs.map(String)) || key;
   const uiLocale = () => globalThis.chrome?.i18n?.getUILanguage?.() || "zh-CN";
@@ -18,14 +20,14 @@
   const DEFAULTS = Object.freeze({ enabled: true, target: "CNY", provider: "ecb", sourceHint: "", excludedHosts: [], siteHints: {}, feePercent: 0, savingsEnabled: true, jevEnabled: false });
   const HOST = /^[a-z0-9.:[\]-]+$/i;
   const SYMBOLS = {
-    "US$": "USD", "CA$": "CAD", "C$": "CAD", "AU$": "AUD", "A$": "AUD",
+    "US$": "USD", "CA$": "CAD", "AU$": "AUD", "A$": "AUD",
     "NZ$": "NZD", "HK$": "HKD", "SG$": "SGD", "S$": "SGD", "NT$": "TWD",
     "R$": "BRL", "CN¥": "CNY", "JP¥": "JPY", "€": "EUR", "£": "GBP",
     "₹": "INR", "₩": "KRW", "฿": "THB", "₫": "VND", "₱": "PHP",
     "₺": "TRY", "₽": "RUB", "zł": "PLN", "元": "CNY", "円": "JPY",
     // One currency each, so they never need a hint. Caribbean dollar signs are prefixes of each other: the longest
     // token wins, so "EC$14" is XCD and never a bare "$".
-    "J$": "JMD", "TT$": "TTD", "RD$": "DOP", "EC$": "XCD", "Bds$": "BBD", "ƒ": "ANG",
+    "J$": "JMD", "TT$": "TTD", "RD$": "DOP", "EC$": "XCD", "Bds$": "BBD",
     "₪": "ILS", "₦": "NGN", "₴": "UAH", "₸": "KZT", "৳": "BDT", "₼": "AZN",
     "Kč": "CZK", "Rp": "IDR", "RMB": "CNY",
     "грн": "UAH", "тг": "KZT", "сўм": "UZS", "so'm": "UZS",
@@ -37,9 +39,10 @@
   const AMBIGUOUS = {
     "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN", "ARS", "CLP", "JMD", "TTD", "BBD", "XCD", "DOP"], "¥": ["CNY", "JPY"], "￥": ["CNY", "JPY"],
     "kr": ["SEK", "NOK", "DKK", "ISK"], "Rs": ["INR", "PKR", "LKR", "NPR"], "₨": ["INR", "PKR", "LKR", "NPR"],
-    "﷼": ["SAR", "QAR"], "ريال": ["SAR", "QAR"], "درهم": ["AED"],
-    // A mark or word two currencies share: Bulgarian and Belarusian roubles, Romanian and Moldovan lei, Kyrgyz and
-    // Tajik som, plus "RM" and "TL", which are also common abbreviations for rooms and (in Turkish) other units.
+    "﷼": ["SAR", "QAR"], "ريال": ["SAR", "QAR"], "درهم": ["AED"], "C$": ["CAD", "NIO"],
+    // A mark or word two currencies share: Russian and Belarusian roubles, Romanian and Moldovan lei, Kyrgyz and
+    // Tajik som, Canadian and Nicaraguan dollars, plus "RM" and "TL", which are also common abbreviations for rooms
+    // and, in Turkish, for other units.
     "руб": ["RUB", "BYN"], "lei": ["RON", "MDL"], "сом": ["KGS", "TJS"], "RM": ["MYR"], "TL": ["TRY"],
   };
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

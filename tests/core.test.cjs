@@ -9,7 +9,7 @@ const cases = [
   ["USD 1,299.99", "", "USD", 1299.99], ["1.299,99 €", "", "EUR", 1299.99],
   ["CHF 1’299.50", "", "CHF", 1299.5], ["€1\u202f299,90", "", "EUR", 1299.9],
   ["INR 1,23,456.78", "", "INR", 123456.78], ["GBP 1.299", "", "GBP", 1299],
-  ["US$49.99", "", "USD", 49.99], ["C$12", "USD", "CAD", 12],
+  ["US$49.99", "", "USD", 49.99], ["C$12", "CAD", "CAD", 12], ["C$100", "NIO", "NIO", 100],
   ["USD $49.99", "", "USD", 49.99], ["$49.99 USD", "CAD", "USD", 49.99],
   ["-$19.95", "USD", "USD", -19.95], ["USD -9.50", "", "USD", -9.5],
   ["−€19,90", "", "EUR", -19.9], ["JPY 0", "", "JPY", 0],
@@ -37,7 +37,7 @@ const symbolCases = [
   ["RMB 100", "CNY", 100], ["250 грн", "UAH", 250], ["12 000 тг", "KZT", 12000], ["1,000,000 so'm", "UZS", 1000000],
   ["12 000 원", "KRW", 12000], ["KSh 1,500", "KES", 1500], ["TSh 40,000", "TZS", 40000], ["USh 9,000", "UGX", 9000],
   ["J$ 99", "JMD", 99], ["RD$ 1,250", "DOP", 1250], ["EC$ 12.50", "XCD", 12.5], ["TT$ 8", "TTD", 8],
-  ["Bds$ 25", "BBD", 25], ["ƒ 40", "ANG", 40], ["د.إ 250", "AED", 250], ["250 ر.س", "SAR", 250],
+  ["Bds$ 25", "BBD", 25], ["د.إ 250", "AED", 250], ["250 ر.س", "SAR", 250],
   ["1 200 ر.ق", "QAR", 1200], ["3 500 دج", "DZD", 3500], ["2 000 сўм", "UZS", 2000],
 ];
 // Marks and words two currencies share: unreadable alone, resolved by the page or the user naming one of them.
@@ -64,11 +64,13 @@ test("currencies beyond the ECB list parse from their own symbol, suffix or spel
 });
 
 test("codes with no quote, a word meaning, or a 3-decimal scale are never currencies", () => {
-  // AWG is a wire gauge, BSD a licence, CRC a checksum; BOB, PAB and BGN are a name and codes no storefront shows. None
-  // of the last three is quoted as a base, so recognising one could only produce a badge that never converts.
-  for (const text of ["AWG 12", "BSD 3", "CRC 32", "BOB 5", "PAB 7", "BGN 10", "GEL 20", "KWD 12.500", "10 Ft", "3 RM"])
+  // AWG is a wire gauge, BSD a licence, CRC a checksum, ƒ an aperture setting; BOB and PAB are a name and a code no
+  // storefront prints, and BGN is retired with no provider quote, so recognising one could only produce a badge that
+  // never converts - or, for ƒ, a badge on a lens.
+  for (const text of ["AWG 12", "BSD 3", "CRC 32", "BOB 5", "PAB 7", "BGN 10", "GEL 20", "KWD 12.500", "10 Ft", "3 RM", "50mm ƒ1.8"])
     assert.equal(C.findPrices(text).length, 0, text);
   assert.equal(C.findPrices("3 RM", "MYR")[0].currency, "MYR", "an explicit MYR hint still reads a shared RM");
+  assert.equal(C.findPrices("C$100").length, 0, "a shared C$ is skipped rather than read as Canadian");
 });
 
 // Every shared mark, and every currency the panel can offer for it, must agree: a code the panel offers but the mark
