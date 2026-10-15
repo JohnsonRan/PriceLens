@@ -76,6 +76,9 @@ test("amounts written in other digit scripts parse, and keep their original spel
     ["١٬٢٩٩٫٥٠ ر.س", "", "SAR", 1299.5], ["US$ ١٩٫٩٩", "", "USD", 19.99], ["₹ ১,২৩৪.৫০", "", "INR", 1234.5],
     ["฿ ๑,๒๓๔.๕๐", "", "THB", 1234.5], ["EUR १,२३४.५०", "", "EUR", 1234.5], ["￥１２，８００", "CNY", "CNY", 12800],
     ["١٢٣ 元", "", "CNY", 123], ["₩ ١٢٬٠٠٠", "", "KRW", 12000], ["៛ ១២៣", "", null, 0],
+    // The Arabic and full-width separators carry their own meaning: ٫ and ． divide the decimals, ٬ and ， group the thousands.
+    ["٢٫٣٤٥ ر.س", "", "SAR", 2.345], ["١٬٢٩٩٫٥٠ ر.س", "", "SAR", 1299.5], ["1,299٫50 ر.س", "", "SAR", 1299.5],
+    ["１２，０００원", "", "KRW", 12000],
   ];
   for (const [text, hint, currency, amount] of cases) {
     const prices = C.findPrices(text, hint);
@@ -85,6 +88,13 @@ test("amounts written in other digit scripts parse, and keep their original spel
     assert.equal(prices[0].amount, amount, text);
     assert.equal(prices[0].original, text, `${text}: the page's own digits are shown back unchanged`);
   }
+  // The prefix form cannot be used here: a currency mark directly before a full-width amount whose own suffix mark
+  // follows would read twice, exactly as "₩12,000원" does, so the amount is taken once by its suffix.
+  assert.deepEqual(C.findPrices("₩ １２，０００원").map((p) => [p.currency, p.amount]), [["KRW", 12000]], "a prefixed full-width amount reads once");
+  // A match may not stop just before a non-ASCII digit or separator: that would read a shorter amount than the page
+  // shows, which is the one outcome this project never accepts. Each has an ASCII twin that is skipped as well.
+  for (const text of ["฿๑,๒๓๔.๕๐บาท", "฿1,234.50baht", "USD ١٢.٣٤x", "USD 12٫34x", "١٢٣٫٤٥"])
+    assert.equal(C.findPrices(text).length, 0, `${text}: a partial amount is skipped, not trimmed`);
   assert.deepEqual(C.findPrices("١٢٣ 元 USD 10").map((p) => p.amount), [123, 10], "Latin and non-Latin amounts parse side by side");
   assert.equal(C.findPrices("٢٠٢٦").length, 0, "digits without a mark are not a price in any script");
 });

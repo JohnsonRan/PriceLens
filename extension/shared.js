@@ -49,7 +49,7 @@
   const number = "[+−-]?\\p{Nd}(?:[\\p{Nd}.,'’ ٫٬，．\\u00a0\\u202f]*\\p{Nd})?";
   const cjk = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}]";
   const SCALE = /^[ \t\u00a0\u202f]*(?:(?:thousand|million|billion|trillion|mil|mln|mn|bn|tn|mio|mrd|m|b|k|t)s?\b|[万萬億亿千百])/iu;
-  const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_]|[.,'’]\\d)|(?=${cjk}))`, "gu");
+  const pattern = new RegExp(`(?:(?<![\\p{L}\\p{N}_])|(?<=${cjk}))(?:([+−-]?)(${tokens})${space}([$¥￥]?)${space}(${number})|(${number})${space}(${tokens}))(?:(?![\\p{L}\\p{N}_]|[.,'’٫٬，．]\\p{Nd})|(?=${cjk}))`, "gu");
 
   // Checkout, payment, account, login, order and cart paths: no AI upload and no reference-difference labels.
   const SENSITIVE_PATH = /(?:checkouts?|payments?|accounts?|log-?in|sign-?in|orders?|carts?|basket)(?:[/.?_-]|$)/i;
@@ -63,11 +63,15 @@
   // Listed as those zeros rather than a codepoint table, and used only to read an amount, never to rewrite the page.
   const DIGIT_ZEROS = "0٠۰߀०০੦૦୦௦౦೦൦෦๐໐༠၀႐០᠐᥆᧐᪀᪐᭐᮰᱀᱐꘠꣐꤀꧐꧰꩐꯰０𐒠𐴰𐵀𑁦𑃰𑄶𑇐𑋰𑑐𑓐𑙐𑛀𑛐𑜰𑣠𑥐𑯰𑱐𑵐𑶠𑷠𑽐𖄰𖩠𖫀𖭐𖵰𜳰𝟎𞅀𞋰𞓰𞗱𞥐🯰";
   const DIGITS = new Map([...DIGIT_ZEROS].flatMap((zero) => [...Array(10)].map((_, i) => [zero.codePointAt(0) + i, String(i)])));
-  // "١٢٣٫٤٥" is the same amount as "123.45"; the separators travel with the digits.
+  // "١٢٣٫٤٥" is the same amount as "123.45". These separators keep their meaning as they travel with the digits:
+  // ٫ and ． mark the decimals, ٬ and ， group the thousands.
   const latinAmount = (text) => text.replace(/\p{Nd}/gu, (digit) => DIGITS.get(digit.codePointAt(0)) ?? digit)
-    .replace(/[٫，]/g, ",").replace(/[٬．]/g, ".");
+    .replace(/[٬，]/g, ",").replace(/[٫．]/g, ".");
+  // A mark that is a decimal by definition, so it never becomes a thousands guess further down.
+  const MARKED_DECIMAL = /[٫．]/;
 
   function parseAmount(input) {
+    const markedDecimal = MARKED_DECIMAL.test(input);
     let value = latinAmount(input.trim()).replace(/−/g, "-");
     let sign = 1;
     if (/^[+-]/.test(value)) {
@@ -78,14 +82,17 @@
     const dots = value.includes(".");
     const commas = value.includes(",");
     let decimal = "";
-    if (dots && commas) decimal = value.lastIndexOf(".") > value.lastIndexOf(",") ? "." : ",";
+    if (markedDecimal) decimal = ".";
+    else if (dots && commas) decimal = value.lastIndexOf(".") > value.lastIndexOf(",") ? "." : ",";
     else if (dots || commas) {
       const separator = dots ? "." : ",";
       const parts = value.split(separator);
       if (parts.length === 2 && /^\d{1,2}$/.test(parts[1])) decimal = separator;
     }
     const parts = decimal ? value.split(decimal) : [value];
-    if (parts.length > 2 || (decimal && !/^\d{1,2}$/.test(parts[1]))) return null;
+    // A marked decimal may carry a longer fraction ("٢٫٣٤٥" is 2.345, never 2345). An ASCII separator stays limited to
+    // one or two digits, where three or more would be a thousands group instead.
+    if (parts.length > 2 || (decimal && !markedDecimal && !/^\d{1,2}$/.test(parts[1]))) return null;
     const integer = parts[0].replace(/[\s’]/gu, "'");
     const separators = [...integer.matchAll(/[^\d]/g)].map((m) => m[0]);
     if (new Set(separators).size > 1) return null;
