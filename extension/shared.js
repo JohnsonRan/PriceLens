@@ -30,7 +30,7 @@
     "J$": "JMD", "TT$": "TTD", "RD$": "DOP", "EC$": "XCD", "Bds$": "BBD",
     "₪": "ILS", "₦": "NGN", "₴": "UAH", "₸": "KZT", "৳": "BDT", "₼": "AZN",
     "Kč": "CZK", "Rp": "IDR", "RMB": "CNY",
-    "грн": "UAH", "тг": "KZT", "сўм": "UZS", "so'm": "UZS",
+    "грн": "UAH", "тг": "KZT", "сўм": "UZS", "сум": "UZS", "so'm": "UZS",
     "원": "KRW", "KSh": "KES", "TSh": "TZS", "USh": "UGX",
     "د.إ": "AED", "ر.س": "SAR", "ر.ق": "QAR", "دج": "DZD",
   };
@@ -38,7 +38,7 @@
   // skipped price the panel reports, never a guess.
   const AMBIGUOUS = {
     "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN", "ARS", "CLP", "JMD", "TTD", "BBD", "XCD", "DOP"], "¥": ["CNY", "JPY"], "￥": ["CNY", "JPY"],
-    "kr": ["SEK", "NOK", "DKK", "ISK"], "Rs": ["INR", "PKR", "LKR", "NPR"], "₨": ["INR", "PKR", "LKR", "NPR"],
+    "kr": ["SEK", "NOK", "DKK", "ISK"], "kr.": ["SEK", "NOK", "DKK", "ISK"], "Rs": ["INR", "PKR", "LKR", "NPR"], "Rs.": ["INR", "PKR", "LKR", "NPR"], "₨": ["INR", "PKR", "LKR", "NPR"],
     "﷼": ["SAR", "QAR"], "ريال": ["SAR", "QAR"], "درهم": ["AED"], "C$": ["CAD", "NIO"],
     // A mark or word two currencies share: Russian and Belarusian roubles, Romanian and Moldovan lei, Kyrgyz and
     // Tajik som, Canadian and Nicaraguan dollars, plus "RM" and "TL", which are also common abbreviations for rooms

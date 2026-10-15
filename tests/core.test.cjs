@@ -38,11 +38,11 @@ const symbolCases = [
   ["12 000 원", "KRW", 12000], ["KSh 1,500", "KES", 1500], ["TSh 40,000", "TZS", 40000], ["USh 9,000", "UGX", 9000],
   ["J$ 99", "JMD", 99], ["RD$ 1,250", "DOP", 1250], ["EC$ 12.50", "XCD", 12.5], ["TT$ 8", "TTD", 8],
   ["Bds$ 25", "BBD", 25], ["د.إ 250", "AED", 250], ["250 ر.س", "SAR", 250],
-  ["1 200 ر.ق", "QAR", 1200], ["3 500 دج", "DZD", 3500], ["2 000 сўм", "UZS", 2000],
+  ["1 200 ر.ق", "QAR", 1200], ["3 500 دج", "DZD", 3500], ["2 000 сўм", "UZS", 2000], ["2 000 сум", "UZS", 2000],
 ];
 // Marks and words two currencies share: unreadable alone, resolved by the page or the user naming one of them.
 const ambiguousCases = [
-  ["1 234,56 kr", "SEK", "SEK", 1234.56], ["199 kr", "DKK", "DKK", 199], ["Rs 1,299", "INR", "INR", 1299],
+  ["1 234,56 kr", "SEK", "SEK", 1234.56], ["199 kr", "DKK", "DKK", 199], ["199 kr.", "DKK", "DKK", 199], ["Rs 1,299", "INR", "INR", 1299], ["Rs. 1,299", "INR", "INR", 1299],
   ["₨ 500", "PKR", "PKR", 500], ["﷼ 300", "SAR", "SAR", 300], ["ريال 90", "QAR", "QAR", 90], ["درهم 75", "AED", "AED", 75],
   ["1 000 руб", "RUB", "RUB", 1000], ["125,50 lei", "RON", "RON", 125.5], ["100 сом", "KGS", "KGS", 100],
   ["RM1,234.56", "MYR", "MYR", 1234.56], ["1.299,00 TL", "TRY", "TRY", 1299],
