@@ -39,7 +39,8 @@
   //   wrong exactly for the shopper who switched the site's currency - the shopper these readers exist to see. A shop
   //   that states nothing is served by the popup's per-site currency, which is offered whenever prices are skipped.
   // - `when` names the markup the site is known by, so an unrelated page carrying a same-named element cannot answer
-  //   for it. `match` is a weaker hostname guard, for a selector that is not specific enough on its own.
+  //   for it. A guard whose selector is not specific enough on its own earns a `when` that pins the markup; nothing
+  //   reads the hostname, because a site's own page is the only place these markers are meaningful.
   // - A reader reads what the page says, in the site's own words (an input's value, an element's text, an inline
   //   data code); it never decides what a currency symbol means, which stays with the ambiguous-mark rules.
   const SITE_READERS = [
@@ -50,10 +51,10 @@
   const SITE_SOURCES = {
     // What the site prints for the shopper: an input's value, otherwise the element's own text.
     selector: ({ selector }) => [...document.querySelectorAll(selector)].map((el) => (el.value ?? el.textContent).trim()),
-    // A code out of the site's own inline data, captured by the reader's own pattern. Per call, so no shared lastIndex.
+    // A code out of the site's own inline data, captured by the reader's own pattern. Built per call, so no shared lastIndex.
     pattern: ({ pattern }) => {
-      const found = [];
-      for (const script of document.scripts) for (const match of script.textContent.matchAll(new RegExp(pattern, "g"))) found.push(match[1]);
+      const found = [], regex = new RegExp(pattern, "g");
+      for (const script of document.scripts) for (const match of script.textContent.matchAll(regex)) found.push(match[1]);
       return found;
     },
   };
@@ -61,7 +62,6 @@
     const hints = [];
     for (const reader of SITE_READERS) {
       if (reader.when && !document.querySelector(reader.when)) continue;
-      if (reader.match && !reader.match.test(location.hostname)) continue;
       hints.push(...SITE_SOURCES[reader.source](reader));
     }
     return hints;
