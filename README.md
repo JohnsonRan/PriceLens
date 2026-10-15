@@ -33,6 +33,8 @@ Open the panel, pick your currency and leave **Convert automatically** on. Origi
 - **Card fee.** Set your card's foreign transaction fee (for example 1.5%) to add it to cross-currency results, so they are closer to what you will be charged. Details say when a fee is included.
 - **Starting prices.** Prices marked with `～` keep their "from" meaning and are never shown as a fixed price.
 - **List-price difference.** Shows the list price minus the current price. It is on by default and can be turned off. It only appears when the page clearly marks a list price (schema.org `StrikethroughPrice` / `ListPrice`) or when a product shows exactly one struck-through price and one current price. Member, coupon and other conditional prices are ignored. It is not a guaranteed saving.
+- **Embedded shops.** Prices a shop renders inside its own frame — a hosted buy button, a booking widget — are converted too, with the tag placed inside that frame.
+- **Number formats.** Prices written in Arabic-Indic, Devanagari, Bengali, Thai, Khmer or full-width digits are read the same way, and are shown back in the page's own digits.
 
 Rates are free daily central-bank reference rates, not live trading prices. The European Central Bank (ECB) is preferred. For currencies the ECB does not publish (such as TWD, VND, AED, SAR and RUB), PriceLens uses Frankfurter's blend of several central banks. The details for each conversion name the source of its rate. You can switch to Wise with your own API token. Every result is an estimate. It excludes fees unless you set one, and may differ from the amount you are finally charged.
 

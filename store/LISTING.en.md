@@ -33,6 +33,8 @@ PriceLens keeps every original price on the page and adds a small tag beside it 
 
 Features
 • Pick your currency once; supported prices on the page get a conversion tag.
+• Prices a shop renders inside its own frame — a hosted buy button, a booking widget — are converted too.
+• Prices written in Arabic-Indic, Devanagari, Bengali, Thai, Khmer or full-width digits are read, and the page's own digits are shown back.
 • Original prices are never replaced. Click a tag (or hover one inside a product link) to see the currency, rate date and rate source.
 • When "$" or "¥" prices are skipped as ambiguous, the panel says how many and links to this site's currency setting.
 • Quick convert: the panel shows the live rate for a currency pair. Type any amount to convert it.
@@ -59,7 +61,7 @@ How to use
 Limitations
 Conversions are estimates. They exclude fees unless you set one, and may differ from what the merchant or bank finally charges. PriceLens never replaces prices and never pays for anything.
 These prices are not supported yet:
-• prices inside images, canvas and iframes
+• prices drawn as images or canvas
 • prices inside closed Shadow DOM
 • prices on some complex pages
 Browser built-in pages cannot be processed.
