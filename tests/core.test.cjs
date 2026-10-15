@@ -30,6 +30,47 @@ test("international prices and explicit vs ambiguous currency", () => {
   assert.equal(C.findPrices("USD 10 / EUR 9 / HK$78").length, 3);
 });
 
+// Currencies outside the ECB list: their symbol, suffix or spelling names exactly one currency, so no hint is needed.
+const symbolCases = [
+  ["₪ 199", "ILS", 199], ["199 ₴", "UAH", 199], ["₦25,000", "NGN", 25000], ["₸ 12 500", "KZT", 12500],
+  ["৳ 1,200", "BDT", 1200], ["₼ 45", "AZN", 45], ["1 299 Kč", "CZK", 1299], ["Rp 1.250.000", "IDR", 1250000],
+  ["RMB 100", "CNY", 100], ["250 грн", "UAH", 250], ["12 000 тг", "KZT", 12000], ["1,000,000 so'm", "UZS", 1000000],
+  ["12 000 원", "KRW", 12000], ["KSh 1,500", "KES", 1500], ["TSh 40,000", "TZS", 40000], ["USh 9,000", "UGX", 9000],
+  ["J$ 99", "JMD", 99], ["RD$ 1,250", "DOP", 1250], ["EC$ 12.50", "XCD", 12.5], ["TT$ 8", "TTD", 8],
+  ["Bds$ 25", "BBD", 25], ["ƒ 40", "ANG", 40], ["د.إ 250", "AED", 250], ["250 ر.س", "SAR", 250],
+  ["1 200 ر.ق", "QAR", 1200], ["3 500 دج", "DZD", 3500], ["2 000 сўм", "UZS", 2000],
+];
+// Marks and words two currencies share: unreadable alone, resolved by the page or the user naming one of them.
+const ambiguousCases = [
+  ["1 234,56 kr", "SEK", "SEK", 1234.56], ["199 kr", "DKK", "DKK", 199], ["Rs 1,299", "INR", "INR", 1299],
+  ["₨ 500", "PKR", "PKR", 500], ["﷼ 300", "SAR", "SAR", 300], ["ريال 90", "QAR", "QAR", 90], ["درهم 75", "AED", "AED", 75],
+  ["1 000 руб", "RUB", "RUB", 1000], ["125,50 lei", "RON", "RON", 125.5], ["100 сом", "KGS", "KGS", 100],
+  ["RM1,234.56", "MYR", "MYR", 1234.56], ["1.299,00 TL", "TRY", "TRY", 1299],
+];
+test("currencies beyond the ECB list parse from their own symbol, suffix or spelling", () => {
+  for (const [text, currency, amount] of symbolCases) {
+    const prices = C.findPrices(text);
+    assert.equal(prices.length, 1, text);
+    assert.equal(prices[0].currency, currency, text);
+    assert.equal(prices[0].amount, amount, text);
+  }
+  for (const [text, hint, currency, amount] of ambiguousCases) {
+    const prices = C.findPrices(text, hint);
+    assert.equal(prices.length, 1, text);
+    assert.equal(prices[0].currency, currency, text);
+    assert.equal(prices[0].amount, amount, text);
+    assert.equal(C.findPrices(text, "", true)[0].currency, null, `${text}: a shared mark is skipped without a hint`);
+  }
+});
+
+test("codes with no quote, a word meaning, or a 3-decimal scale are never currencies", () => {
+  // AWG is a wire gauge, BSD a licence, CRC a checksum; BOB, PAB and BGN are a name and codes no storefront shows. None
+  // of the last three is quoted as a base, so recognising one could only produce a badge that never converts.
+  for (const text of ["AWG 12", "BSD 3", "CRC 32", "BOB 5", "PAB 7", "BGN 10", "GEL 20", "KWD 12.500", "10 Ft", "3 RM"])
+    assert.equal(C.findPrices(text).length, 0, text);
+  assert.equal(C.findPrices("3 RM", "MYR")[0].currency, "MYR", "an explicit MYR hint still reads a shared RM");
+});
+
 test("every supported code has a localized name from Intl", () => {
   for (const code of Object.keys(C.CURRENCIES)) {
     for (const locale of ["zh-CN", "en"]) assert.notEqual(C.currencyName(code, locale), code, `${code} ${locale}`);
