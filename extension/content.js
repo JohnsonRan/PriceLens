@@ -292,11 +292,12 @@
     return { anchor: el, prices };
   }
 
-  // With AI on, symbol-only amounts ("$", "¥") are units too (AI may settle them). With AI off they are not, but the
-  // popup counts them exactly as AI would read them (same unit, visibility and lazy rules): `count` is that unit, for
-  // counting only. One walk serves both, reading each ancestor's text once; only a text with such a symbol is parsed twice.
+  // With AI on, an amount the page cannot settle ("$", "kr", "Rs", ...) is a unit too, because AI may settle it. With
+  // AI off it is not a price unit, but the popup counts it exactly as AI would read it (same unit, visibility and lazy
+  // rules) and offers this site's currency: `count` is that unit, for counting only. One walk serves both, reading each
+  // ancestor's text once; a text holding a shared mark is parsed a second time.
   function unitFor(node, hint) {
-    const unresolved = settings.jevEnabled, symbol = /[$¥￥]/;
+    const unresolved = settings.jevEnabled, shared = C.AMBIGUOUS_MARK;
     // Read a canonical complete price; CSS-implied decimals without one remain unsupported.
     let el = node.parentElement, count = null;
     for (let depth = 0; el && el !== document.body && depth < 3; depth++, el = el.parentElement) {
@@ -309,16 +310,22 @@
       const whole = (prices) => prices.length === 1 && ((prices[0].start === 0 && prices[0].end === text.length) || clipped);
       const prices = C.findPrices(text, hint, unresolved);
       if (whole(prices)) return visibleUnit(el, prices);
-      if (!unresolved && !count && symbol.test(text)) {
+      if (!unresolved && !count && shared.test(text)) {
         const all = C.findPrices(text, hint, true);
-        if (whole(all)) count = visibleUnit(el, all);
+        // Counted the way AI reads it, so the panel can offer this site's currency for the mark the page used.
+        if (whole(all) && !all[0].currency) count = visibleUnit(el, all);
       }
     }
     // "USD 19" directly followed by a superscript that is not accepted above is a truncated amount, not USD 19.
     const next = node.nextSibling;
     if (/\p{Nd}\s*$/u.test(node.data) && next?.nodeType === Node.ELEMENT_NODE && next.matches("sup,sub") && /^\s*\p{Nd}/u.test(next.textContent)) return { anchor: node, prices: [], count };
     const prices = C.findPrices(node.data, hint, unresolved);
-    if (!prices.length && !unresolved && !count && symbol.test(node.data)) count = { anchor: node, prices: C.findPrices(node.data, hint, true) };
+    // The node's own text, when no ancestor read as one whole price: every amount a shared mark leaves open counts, so a
+    // range the ancestor walk rejects still reports each of its prices.
+    if (!prices.length && !unresolved && !count && shared.test(node.data)) {
+      const all = C.findPrices(node.data, hint, true);
+      if (all.length) count = { anchor: node, prices: all };
+    }
     return { anchor: node, prices, count };
   }
 
@@ -354,8 +361,9 @@
     renderPrices(anchor, prices);
   }
 
-  // Only "$", "¥" and "￥" stay unresolved; "￥" and a starting-price "～" are no different symbol to the user.
-  const symbolOf = (price) => /[¥￥]/.test(price.original) ? "¥" : "$";
+  // The mark the panel names for a price left unresolved: the one the page itself used, with the full-width "￥" folded
+  // into "¥" because the two are the same symbol to a shopper.
+  const symbolOf = (price) => price.mark === "￥" ? "¥" : price.mark;
   // label: a non-interactive span for inside a host control; otherwise a button that opens the details dialog.
   function makeBadge(label) {
     const badge = document.createElement(label ? "span" : "button");
@@ -387,7 +395,7 @@
       const ai = !price.currency;
       if (ai) price.currency = aiCurrency(anchor, price);
       if (!price.currency) {
-        // Symbol only ("$", "¥"), with AI off or unsettled by it: the popup offers this site's currency for these.
+        // A shared mark ("$", "kr", "Rs", ...), with AI off or unsettled by it: the popup offers this site's currency for these.
         if (store === records) ambiguous.push(symbolOf(price));
         continue;
       }

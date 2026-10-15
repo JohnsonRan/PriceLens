@@ -35,7 +35,7 @@
   // Several currencies share these, so they are only read when the page or the user names one. A miss here is a
   // skipped price the panel reports, never a guess.
   const AMBIGUOUS = {
-    "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN", "ARS", "CLP"], "¥": ["CNY", "JPY"], "￥": ["CNY", "JPY"],
+    "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN", "ARS", "CLP", "JMD", "TTD", "BBD", "XCD", "DOP"], "¥": ["CNY", "JPY"], "￥": ["CNY", "JPY"],
     "kr": ["SEK", "NOK", "DKK", "ISK"], "Rs": ["INR", "PKR", "LKR", "NPR"], "₨": ["INR", "PKR", "LKR", "NPR"],
     "﷼": ["SAR", "QAR"], "ريال": ["SAR", "QAR"], "درهم": ["AED"],
     // A mark or word two currencies share: Bulgarian and Belarusian roubles, Romanian and Moldovan lei, Kyrgyz and
@@ -43,6 +43,8 @@
     "руб": ["RUB", "BYN"], "lei": ["RON", "MDL"], "сом": ["KGS", "TJS"], "RM": ["MYR"], "TL": ["TRY"],
   };
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Any mark that can leave a price unresolved, so a caller can ask cheaply whether a text may hold one.
+  const AMBIGUOUS_MARK = new RegExp(Object.keys(AMBIGUOUS).sort((a, b) => b.length - a.length).map(escape).join("|"), "u");
   const tokens = [...Object.keys(CURRENCIES), ...Object.keys(SYMBOLS), ...Object.keys(AMBIGUOUS)].sort((a, b) => b.length - a.length).map(escape).join("|");
   const space = "[ \\t\\u00a0\\u202f]*";
   // Unicode decimal digits, plus the Arabic and full-width separators that come with them. Parse-time only.
@@ -147,7 +149,7 @@
         signedAmount = -signedAmount;
         start += sign.length; // The range connector is not part of the upper price's verbatim amount.
       }
-      prices.push({ start, end, original: text.slice(start, end), currency, amount: signedAmount, possibleCurrencies: currency ? [] : [...AMBIGUOUS[token]], ...(minimum ? { minimum: true } : {}) });
+      prices.push({ start, end, original: text.slice(start, end), currency, amount: signedAmount, possibleCurrencies: currency ? [] : [...AMBIGUOUS[token]], ...(currency ? {} : { mark: token }), ...(minimum ? { minimum: true } : {}) });
     }
     return prices.filter((price, i) => i === 0 || price.start >= prices[i - 1].end);
   }
@@ -309,7 +311,7 @@
     return new Intl.NumberFormat(uiLocale(), { style: "currency", currency, currencyDisplay: "code" }).format(amount);
   }
 
-  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, formatMoney, pairSavings, structuredCurrencies, dataCurrencies, structuredSavings, localSavings };
+  const api = { t, uiLocale, isSensitivePath, currencyName, CURRENCIES, ECB_CURRENCIES, DEFAULTS, AMBIGUOUS, AMBIGUOUS_MARK, currencyFor, parseAmount, findPrices, settingsFrom, convert, siteHintFor, manualHint, formatMoney, pairSavings, structuredCurrencies, dataCurrencies, structuredSavings, localSavings };
   globalThis.PriceLens = Object.freeze(api);
   if (typeof module !== "undefined") module.exports = api;
 })();

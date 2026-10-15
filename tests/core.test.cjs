@@ -71,6 +71,29 @@ test("codes with no quote, a word meaning, or a 3-decimal scale are never curren
   assert.equal(C.findPrices("3 RM", "MYR")[0].currency, "MYR", "an explicit MYR hint still reads a shared RM");
 });
 
+// Every shared mark, and every currency the panel can offer for it, must agree: a code the panel offers but the mark
+// cannot resolve would make "Currency on this site" silently do nothing for exactly the shops that need it.
+test("a shared mark resolves to each currency it names, and names only supported ones", () => {
+  for (const [mark, candidates] of Object.entries(C.AMBIGUOUS)) {
+    assert.ok(candidates.length, mark);
+    for (const code of candidates) {
+      assert.ok(Object.hasOwn(C.CURRENCIES, code), `${mark} names the unsupported ${code}`);
+      assert.equal(C.findPrices(`${mark} 10`, code)[0]?.currency, code, `${mark} 10 with a ${code} hint`);
+      assert.equal(C.findPrices(`10 ${mark}`, code)[0]?.currency, code, `10 ${mark} with a ${code} hint`);
+    }
+  }
+});
+
+test("a skipped price reports the mark the page used, and a shared mark is detected without a full parse", () => {
+  for (const [text, mark] of [["$19.99", "$"], ["￥30", "￥"], ["199 kr", "kr"], ["Rs 1,299", "Rs"], ["125,50 lei", "lei"], ["50 ₨", "₨"], ["ريال 90", "ريال"]]) {
+    const [price] = C.findPrices(text, "", true);
+    assert.equal(price.mark, mark, text);
+    assert.equal(price.currency, null, `${text}: unresolved prices carry a mark`);
+    assert.equal(C.AMBIGUOUS_MARK.test(text), true, text);
+  }
+  for (const text of ["USD 10", "EUR 20", "room 5", "total 7"]) assert.equal(C.AMBIGUOUS_MARK.test(text), false, text);
+});
+
 test("amounts written in other digit scripts parse, and keep their original spelling", () => {
   const cases = [
     ["١٬٢٩٩٫٥٠ ر.س", "", "SAR", 1299.5], ["US$ ١٩٫٩٩", "", "USD", 19.99], ["₹ ১,২৩৪.৫০", "", "INR", 1234.5],

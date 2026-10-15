@@ -107,10 +107,10 @@ window.addEventListener('load', async () => {
     check('text metadata mutation updates price', amounts('text-metadata').some(t => t.includes('40.00')), amounts('text-metadata'));
     {
       const status = pageStatus();
-      check('page status counts visible prices skipped for an ambiguous symbol (two cards, the metadata-less dynamic price and the far-wrapper price), with symbols and counts only', status?.active && status.skipped === 4 && JSON.stringify(status.symbols) === '["$"]' && status.pending === false && Object.keys(status).sort().join() === 'active,ok,pending,skipped,symbols', status);
+      check('page status counts visible prices skipped for a shared mark (two cards, the metadata-less dynamic price, the far-wrapper price and a kr price), with symbols and counts only', status?.active && status.skipped === 5 && JSON.stringify(status.symbols) === '["$","kr"]' && status.pending === false && Object.keys(status).sort().join() === 'active,ok,pending,skipped,symbols', status);
     }
     settings.siteHints = { [location.hostname]: 'USD' }; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
-    check('setting this site\'s currency clears the skipped count', pageStatus()?.skipped === 0, pageStatus());
+    check('setting this site\'s currency clears every skip its own mark can resolve, and leaves a mark it cannot (kr is never a dollar)', pageStatus()?.skipped === 1 && JSON.stringify(pageStatus()?.symbols) === '["kr"]', pageStatus());
     check('this site\x27s currency resolves an otherwise ambiguous $', amounts('unknown').some(t => t.includes('80.00')), amounts('unknown'));
     check('the user\x27s site currency never overrides a card\x27s own markup, however deep the price sits', amounts('known').some(t => t.includes('40.00')) && amounts('deep-card').some(t => t.includes('20.00')), [amounts('known'), amounts('deep-card')]);
     settings.siteHints = {}; listeners.forEach(fn => fn({ type: 'refresh' })); await wait();
@@ -135,7 +135,7 @@ window.addEventListener('load', async () => {
       el('ai-toggle').hidden = false; await settle();
       const total = pageStatus().skipped;
       const off = await counts();
-      check('without AI, suffix, split, superscript and range spellings count per price, with symbols normalised to $ and ¥', off.spellings === 7 && off.symbols === '$ ¥' && off.spellingsHidden === 0, off);
+      check('without AI, suffix, split, superscript and range spellings count per price, with the page\x27s own marks reported ($ ¥ for these, kr for the shared mark)', off.spellings === 7 && off.symbols === '$ kr ¥' && off.spellingsHidden === 0, off);
       check('without AI, a carousel slide counts only while it is shown', off.slideA === 1 && off.slideB === 1 && off.slidesHidden === 0 && off.pending === false, off);
       settings.jevEnabled = true; listeners.forEach(fn => fn({ type: 'refresh' }));
       check('a settings change reports a pending scan instead of a settled count', pageStatus().pending === true, pageStatus());
