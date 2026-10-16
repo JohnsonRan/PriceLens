@@ -352,6 +352,8 @@
     if (!table || !root?.isConnected) return;
     themeRoots.add(root);
     visibilityRoots.add(root);
+    if (themeRoots.size > 100) { themeRoots.clear(); themeRoots.add(document.documentElement); }
+    if (visibilityRoots.size > 100) { visibilityRoots.clear(); visibilityRoots.add(document.documentElement); }
     hintDirty = true; // Price-filter unit evidence must follow CSS visibility, not just its initial state.
     queueAIContexts(root);
     schedule();
@@ -697,7 +699,10 @@
         queueAppearance(element);
         continue;
       }
-      if (mutation.type === "childList") themeRoots.add(element);
+      if (mutation.type === "childList") {
+        themeRoots.add(element);
+        if (themeRoots.size > 100) { themeRoots.clear(); themeRoots.add(document.documentElement); }
+      }
       if (HINT_INPUTS && touches(HINT_INPUTS)) hintDirty = true;
       if (element?.closest("head,script") || mutation.attributeName === "content" || element === document.documentElement || changed.some((n) => n.nodeType === Node.ELEMENT_NODE && (n.matches("meta,script") || n.querySelector("meta,script")))) hintDirty = true;
       // Metadata constrains sibling prices, not merely its own (often empty) text subtree.
