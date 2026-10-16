@@ -60,7 +60,7 @@ npm test
 
 每次推送和 PR 都会在 GitHub Actions（Ubuntu + Playwright Chromium）上运行全部测试；有测试被跳过即视为失败。
 
-- 测试覆盖 `package.json` 中列出的产品回归，使用假凭据、模拟网络和一次性浏览器配置，不调用任何付费服务。
+- 测试覆盖 `tests/` 中的产品回归，使用假凭据、模拟网络和一次性浏览器配置，不调用任何付费服务。
 - DOM 测试需要 Chromium 或 Chrome：用 `CHROME_BIN` 指定可执行文件，否则会查找本机（Windows 或 Linux）已安装的 Playwright Chromium headless shell。找不到浏览器时会明确跳过。**只通过逻辑测试不等于通过浏览器验证。**
 - 商店文案和图片在 `store/`（见 `store/LISTING.zh-CN.md`）。`node store/render-screenshots.cjs` 用真实扩展界面、模拟 API 和固定示例汇率重新生成截图与宣传图，需要完整 Chromium（同 MV3 冒烟测试）。`powershell -NoProfile -File store/package.ps1`（Windows）从 `store/icon-source.png` 生成图标，并按固定文件清单打包到 `dist/pricelens-<版本>.zip`。
 - 真实 MV3 冒烟测试需要完整 Chromium（不是 headless shell）：设置 `MV3_CHROME_BIN`，或安装 Playwright Chromium。它在临时配置中加载实际扩展，使用合成的缓存汇率并拦截对外请求，验证后台消息、设置保存、页面开关、右键换算结果、快速换算和 Enter/Escape。不验证线上服务、权限弹窗或长期运行后 worker 被回收的情况。

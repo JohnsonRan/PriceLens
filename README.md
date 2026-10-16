@@ -60,7 +60,7 @@ npm test
 
 Every push and pull request runs the whole suite on GitHub Actions (Ubuntu with Playwright Chromium); any skipped test fails the run.
 
-- The suite covers the product regressions listed in `package.json`. It uses fake credentials, mocked network and throwaway browser profiles, and never calls a paid service.
+- The suite covers the product regressions in `tests/`. It uses fake credentials, mocked network and throwaway browser profiles, and never calls a paid service.
 - DOM tests need Chromium or Chrome. Point `CHROME_BIN` at an executable, or they will look for an installed Playwright Chromium headless shell on Windows or Linux. Without a browser they are skipped explicitly. **Passing logic tests alone is not a browser verification.**
 - Store listing text and images are in `store/` (see `store/LISTING.en.md`). `node store/render-screenshots.cjs` regenerates the screenshots and promo tiles from the real extension UI with mocked APIs and fixed sample rates; it needs full Chromium, like the MV3 smoke test. `powershell -NoProfile -File store/package.ps1` (Windows) renders the icons from `store/icon-source.png` and builds `dist/pricelens-<version>.zip` from a fixed file list.
 - The real MV3 smoke test needs full Chromium (not the headless shell). Set `MV3_CHROME_BIN` or install Playwright Chromium. It loads the actual extension in a temporary profile with synthetic cached rates and blocked outbound requests. It checks worker messaging, saving settings, toggling pages, right-click results, the quick converter and Enter/Escape. It does not exercise live services, permission prompts or long-term worker eviction.
