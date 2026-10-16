@@ -231,7 +231,7 @@ function worker(settings = {}, localData = {}, options = {}) {
       const quotes = url.includes("/providers/ecb/") ? C.ECB_CURRENCIES : params.get("quotes")?.split(",") || [];
       const payload = rows || (url.includes("wise.com")
         ? [{ source: target, target: "USD", rate: 0.125, time: new Date().toISOString() }]
-        : quotes.filter((quote) => quote !== target).map((quote) => ({ base: target, quote, rate: quote === "USD" ? 0.125 : 1, date: new Date().toISOString().slice(0, 10) })));
+        : quotes.map((quote) => ({ base: "EUR", quote, rate: quote === "CNY" ? 8 : (quote === "USD" ? 1 : (quote === "EUR" ? 1 : 1)), date: new Date().toISOString().slice(0, 10) })));
       return { ok: true, json: async () => payload };
     },
     chrome: {
@@ -259,10 +259,11 @@ test("ECB fetch, cache, deduplication and stale fallback", async () => {
   assert.ok(results.every((r) => r.ok));
   assert.equal(w.calls.length, 2, "one ECB request plus one gap-filling request");
   assert.equal(C.convert(10, "USD", results[0].table), 80);
-  assert.ok(w.calls[0].url.includes("/providers/ecb/rates?base=CNY"));
+  assert.ok(w.calls[0].url.includes("/providers/ecb/rates?base=EUR"));
   const gap = new URL(w.calls[1].url);
   assert.equal(gap.pathname, "/v2/rates");
-  assert.deepEqual(gap.searchParams.get("quotes").split(",").sort(), Object.keys(C.CURRENCIES).filter((code) => !C.ECB_CURRENCIES.includes(code)).sort(), "only ECB gaps use the blend");
+  const expectedBlendQuotes = [...Object.keys(C.CURRENCIES).filter((code) => !C.ECB_CURRENCIES.includes(code)), "CNY"].sort();
+  assert.deepEqual(gap.searchParams.get("quotes").split(",").sort(), expectedBlendQuotes, "ECB gaps plus target use the blend");
   assert.equal(results[0].table.rates.USD.source, "ecb");
   assert.equal(results[0].table.rates.TWD.source, "blend");
   assert.equal(w.access(), "TRUSTED_CONTEXTS");
@@ -294,6 +295,19 @@ test("one failing key-free source does not discard the other", async () => {
   assert.equal(ecbOnly.ok, true);
   assert.equal(ecbOnly.table.rates.USD.source, "ecb");
   assert.equal(ecbOnly.table.rates.TWD, undefined, "a missing blend leaves non-ECB currencies unconverted, never guessed");
+});
+
+test("low-unit target currencies derive rate precision without provider rounding error", async () => {
+  const w = worker({ target: "IDR" });
+  w.rows([
+    { base: "EUR", quote: "EUR", rate: 1, date: new Date().toISOString().slice(0, 10) },
+    { base: "EUR", quote: "USD", rate: 1.1253, date: new Date().toISOString().slice(0, 10) },
+    { base: "EUR", quote: "IDR", rate: 20290.28, date: new Date().toISOString().slice(0, 10) },
+  ]);
+  const res = await w.send({ type: "getRates" });
+  assert.equal(res.ok, true);
+  const converted = C.convert(100, "USD", res.table);
+  assert.ok(Math.abs(converted - 1803099.6) < 1, `converted: ${converted}`);
 });
 
 test("Wise auth stays in worker; only popup can edit; token rotation clears cache", async () => {

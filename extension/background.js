@@ -40,6 +40,28 @@ async function inferJev(message, sender) {
 }
 
 // Rows -> { CODE: { rate, asOf, source } }, keeping only requested, fresh, positive quotes.
+function readFrankfurterRates(rows, target, source, wanted) {
+  if (!Array.isArray(rows) || rows.length > 1000) throw new Error(t("errRatesInvalid"));
+  const valid = (row) => {
+    if (!row || typeof row !== "object" || row.base !== "EUR" || typeof row.quote !== "string") return null;
+    const time = typeof row.date === "string" ? Date.parse(row.date) : NaN;
+    if (typeof row.rate !== "number" || !Number.isFinite(row.rate) || row.rate <= 0 || !Number.isFinite(time) || time > Date.now() + 24 * 60 * 60_000 || Date.now() - time > MAX_STALE) return null;
+    return row;
+  };
+  const validRows = rows.map(valid).filter(Boolean);
+  const targetRow = target === "EUR" ? { quote: "EUR", rate: 1, date: validRows[0]?.date || new Date().toISOString().slice(0, 10) } : validRows.find((r) => r.quote === target);
+  if (!targetRow) return {};
+  const rates = {};
+  for (const row of validRows) {
+    if (!wanted.includes(row.quote)) continue;
+    rates[row.quote] = { rate: row.rate / targetRow.rate, asOf: row.date, source };
+  }
+  if (wanted.includes("EUR") && !rates.EUR) {
+    rates.EUR = { rate: 1 / targetRow.rate, asOf: targetRow.date, source };
+  }
+  return rates;
+}
+
 function readRates(rows, target, source, wanted) {
   if (!Array.isArray(rows) || rows.length > 1000) throw new Error(t("errRatesInvalid"));
   const rates = {};
@@ -82,11 +104,14 @@ async function download(provider, target, token) {
   } else {
     // Prefer one traceable official source (ECB); fill only its gaps with Frankfurter's multi-central-bank blend.
     if (ECB_CURRENCIES.includes(target)) {
-      try { Object.assign(rates, readRates(await request(`https://api.frankfurter.dev/v2/providers/ecb/rates?base=${target}`), target, "ecb", others)); } catch (e) { error = e; }
+      try { Object.assign(rates, readFrankfurterRates(await request("https://api.frankfurter.dev/v2/providers/ecb/rates?base=EUR"), target, "ecb", others)); } catch (e) { error = e; }
     }
     const missing = others.filter((code) => !rates[code]);
     if (missing.length) {
-      try { Object.assign(rates, readRates(await request(`https://api.frankfurter.dev/v2/rates?base=${target}&quotes=${missing.join(",")}`), target, "blend", missing)); } catch (e) { error ??= e; }
+      try {
+        const quotes = [...new Set([...missing, target])].filter((code) => code !== "EUR").join(",");
+        Object.assign(rates, readFrankfurterRates(await request(`https://api.frankfurter.dev/v2/rates?base=EUR&quotes=${quotes}`), target, "blend", missing));
+      } catch (e) { error ??= e; }
     }
   }
   if (!Object.keys(rates).length) throw error || new Error(t("errRatesNone"));
