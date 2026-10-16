@@ -45,7 +45,7 @@ test('schema.org sale markup yields exactly one reference/current pair per offer
 });
 
 test('sensitive paths are shared by AI and reference-difference guards', () => {
-  for (const path of ['/checkout', '/cart/', '/account/settings', '/orders/123', '/order.html', '/login?next=/', '/payment_method', '/checkouts/c/abc', '/accounts', '/signin', '/sign-in', '/basket', '/#/checkout']) assert.equal(C.isSensitivePath(path), true, path);
+  for (const path of ['/checkout', '/cart/', '/account/settings', '/orders/123', '/order.html', '/login?next=/', '/payment_method', '/checkouts/c/abc', '/accounts', '/signin', '/sign-in', '/basket', '/#/checkout', '/index.php?route=checkout/cart', '/index.php?route=account/login']) assert.equal(C.isSensitivePath(path), true, path);
   for (const path of ['/', '/products/cartridge-ink', '/accounting-books', '/category/shoes']) assert.equal(C.isSensitivePath(path), false, path);
 });
 

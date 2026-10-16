@@ -407,6 +407,8 @@ test("Jev requires device-local opt-in, API permission, key and an allowed non-s
     [{ excludedHosts: ["shop.test"] }, activeAI, { granted: true }, "https://shop.test/"],
     [{}, activeAI, { granted: true }, "https://shop.test/checkout"],
     [{}, activeAI, { granted: true }, "https://shop.test/account/orders"],
+    [{}, activeAI, { granted: true }, "https://shop.test/index.php?route=checkout/cart"],
+    [{}, activeAI, { granted: true }, "https://shop.test/index.php?route=account/login"],
   ]) {
     const w = worker(settings, local, options);
     assert.equal((await w.send(inference(), false, url)).ok, false);

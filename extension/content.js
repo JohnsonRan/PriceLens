@@ -148,7 +148,7 @@
 
   function aiContext(anchor, original) {
     let el = elementOf(anchor);
-    if (!el || el === document.body || el.closest(`${SKIP},form,[role="form"]`) || C.isSensitivePath(location.pathname + location.hash)) return null;
+    if (!el || el === document.body || el.closest(`${SKIP},form,[role="form"]`) || C.isSensitivePath(location.pathname + location.search + location.hash)) return null;
     let result = null;
     for (let depth = 0; depth <= 3; depth++) {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
@@ -549,7 +549,7 @@
   }
 
   function scanSavings(roots) {
-    const active = settings.savingsEnabled && !C.isSensitivePath(location.pathname + location.hash);
+    const active = settings.savingsEnabled && !C.isSensitivePath(location.pathname + location.search + location.hash);
     for (const scope of savingsRecords.keys()) if (!scope.isConnected || !active) removeRecord(scope, savingsRecords);
     if (!active) return;
     const scopes = new Set();

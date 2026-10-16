@@ -27,7 +27,7 @@ async function inferJev(message, sender) {
   let url;
   try { url = new URL(sender.url); } catch { throw new Error(t("errJevPageOnly")); }
   if (!settings.enabled || !settings.jevEnabled || settings.excludedHosts.includes(url.hostname)) throw new Error(t("errJevOff"));
-  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname + url.hash)) throw new Error(t("errAiSensitive"));
+  if (!/^https?:$/.test(url.protocol) || isSensitivePath(url.pathname + url.search + url.hash)) throw new Error(t("errAiSensitive"));
   if (!await chrome.permissions.contains({ origins: ["https://api.typesafe.ai/*"] })) throw new Error(t("errJevPermission"));
   const { jevKey } = await chrome.storage.local.get("jevKey");
   if (!jevKey) throw new Error(t("errJevKeyMissing"));
