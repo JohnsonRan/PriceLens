@@ -643,6 +643,9 @@
       if (!anchor.isConnected) removeRecord(anchor);
       else if (touchesAny(topRoots, anchor)) affected.add(anchor);
     }
+    for (const el of deferred) {
+      if (!el.isConnected) { deferred.delete(el); lazy.unobserve(el); }
+    }
     const seen = new Set(), unitsSeen = new Set();
     const affectedUnits = [];
     for (const anchor of priceUnits.keys()) {
