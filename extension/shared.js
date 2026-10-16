@@ -145,7 +145,7 @@
       const previous = prices.at(-1);
       // Only a sign BEFORE a currency token can join adjacent range endpoints.
       // A sign inside the amount (USD -20), standalone negatives and refunds keep their sign.
-      if ((sign === "-" || sign === "−") && signedAmount < 0 && previous?.amount >= 0 && previous.currency === currency &&
+      if ((sign === "-" || sign === "−") && signedAmount < 0 && previous?.amount >= 0 && amount >= previous.amount && previous.currency === currency &&
           (currency || previous.possibleCurrencies.join() === AMBIGUOUS[token]?.join()) &&
           /^\s*$/u.test(text.slice(previous.end, match.index))) {
         signedAmount = -signedAmount;

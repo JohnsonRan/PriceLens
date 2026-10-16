@@ -163,6 +163,7 @@ test("range separators do not turn explicit signed amounts or standalone refunds
   for (const text of ["USD 10 USD -20", "USD 10, -USD 20", "USD 10 refund -USD 20"]) {
     assert.deepEqual(C.findPrices(text).map((p) => p.amount), [10, -20], text);
   }
+  assert.deepEqual(C.findPrices("€19,90 −€5,00 Rabatt").map((p) => p.amount), [19.9, -5], "adjacent discount after price retains negative sign and is not a range");
   assert.deepEqual(C.findPrices("Price range €10 -€20").map((p) => p.original), ["€10", "€20"], "range connector is not a negative source amount in the detail view");
   assert.deepEqual(C.findPrices("-€20").map((p) => p.amount), [-20]);
   assert.deepEqual(C.findPrices("$10 -$20", "", true).map((p) => p.amount), [10, 20]);
