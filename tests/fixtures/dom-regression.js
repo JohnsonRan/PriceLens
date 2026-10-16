@@ -52,6 +52,7 @@ window.addEventListener("load", async () => {
     });
     check("original price capsule and image dimensions never expand", () => byId("yahoo-price").textContent === "15,000円" && byId("yahoo-price").getBoundingClientRect().width === capsuleWidth && byId("yahoo-picture").getBoundingClientRect().height === pictureHeight);
     check("fixed-height clipped row uses a safe adjacent flow position", () => after("clipped-row")?.textContent.includes("240.00") && !byId("clipped-row").querySelector("[data-pricelens]"));
+    check("adjacent digit cells do not merge into a grouped thousands misread", () => !byId("split-digits-row").querySelector("[data-pricelens]"));
     check("accessible-price extraction works without Amazon class names", () => after("generic-widget")?.textContent.includes("204.00") && !byId("generic-widget").querySelector("[data-pricelens]"));
     // Digits in another script must compare as digits: with an ASCII-only class the accessible price and the visible
     // duplicate both reduce to an empty string, so any visible mirror would match and the badge would sit beside a

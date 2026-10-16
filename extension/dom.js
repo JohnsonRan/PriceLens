@@ -35,8 +35,8 @@
     for (const child of node.childNodes) {
       if (child.nodeType === Node.ELEMENT_NODE && child.matches(includeMirrors ? TEXT_SKIP : SKIP)) continue;
       const part = textOf(child, visibleOnly, includeMirrors);
-      // Digits split across elements ("19" + styled "99") are not one number; a space makes them unparseable instead of 1999.
-      text += child.nodeType === Node.ELEMENT_NODE && /\p{Nd}$/u.test(text) && /^\p{Nd}/u.test(part) ? ` ${part}` : part;
+      // Digits split across elements ("19" + styled "99") are not one number; a non-grouping break keeps them from merging.
+      text += child.nodeType === Node.ELEMENT_NODE && /\p{Nd}$/u.test(text) && /^\p{Nd}/u.test(part) ? `\u200b${part}` : part;
       if (text.length > 160) break;
     }
     return text;
